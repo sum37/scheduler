@@ -1650,6 +1650,63 @@ body.scrolling * {
   margin: 24px 0 0 0;
 }
 
+.onboarding-link {
+  color: var(--accent-primary);
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.onboarding-link:hover {
+  text-decoration: underline;
+}
+
+.onboarding-tabs {
+  display: flex;
+  gap: 4px;
+  background: var(--bg-tertiary);
+  padding: 4px;
+  border-radius: var(--radius-md);
+  margin-bottom: 24px;
+}
+
+.onboarding-tab {
+  flex: 1;
+  padding: 10px 16px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.onboarding-tab.active {
+  color: white;
+  background: var(--accent-primary);
+}
+
+.onboarding-tab:hover:not(.active) {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.onboarding-input.error {
+  border-color: var(--danger);
+}
+
+.onboarding-input.error:focus {
+  box-shadow: 0 0 0 4px rgba(196, 92, 74, 0.15);
+}
+
+.onboarding-error {
+  color: var(--danger);
+  font-size: 0.8rem;
+  margin-top: 8px;
+  text-align: left;
+}
+
 /* ===== Logout Button ===== */
 .logout-button {
   width: 100%;

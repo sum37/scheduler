@@ -18,16 +18,14 @@ interface ProfileViewProps {
 export default function ProfileView({ date, weekStart }: ProfileViewProps) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [stats, setStats] = useState<{ categoryId: string; hours: number }[]>([]);
-  const [isEditingName, setIsEditingName] = useState(false);
   const weekDays = getWeekDays(date);
   
   // Firebase 공유 관련
-  const { isConnected, roomCode, roomUsers, currentUser, setUserName, logout, createRoom, joinRoom, leaveRoom } = useFirebase();
+  const { isConnected, roomCode, roomUsers, currentUser, logout, createRoom, joinRoom, leaveRoom } = useFirebase();
   const [joinCodeInput, setJoinCodeInput] = useState('');
   const [isCreatingRoom, setIsCreatingRoom] = useState(false);
   const [isJoiningRoom, setIsJoiningRoom] = useState(false);
   const [showCopySuccess, setShowCopySuccess] = useState(false);
-  const [tempName, setTempName] = useState(currentUser?.name || '');
 
   const loadData = useCallback(() => {
     setCategories(getCategories());
@@ -44,11 +42,6 @@ export default function ProfileView({ date, weekStart }: ProfileViewProps) {
 
   const totalHours = stats.reduce((sum, s) => sum + s.hours, 0);
   const maxHours = Math.max(...stats.map(s => s.hours), 1);
-
-  const handleNameSave = () => {
-    setUserName(tempName);
-    setIsEditingName(false);
-  };
 
   // 공유 룸 생성
   const handleCreateRoom = async () => {
@@ -232,39 +225,17 @@ export default function ProfileView({ date, weekStart }: ProfileViewProps) {
         <div className="profile-section">
           <div className="profile-item">
             <label className="profile-label">이름</label>
-            {isEditingName ? (
-              <div className="profile-name-edit">
-                <input
-                  type="text"
-                  value={tempName}
-                  onChange={(e) => setTempName(e.target.value)}
-                  className="profile-name-input"
-                  placeholder="이름을 입력하세요"
-                  autoFocus
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleNameSave();
-                    if (e.key === 'Escape') {
-                      setTempName(currentUser?.name || '');
-                      setIsEditingName(false);
-                    }
-                  }}
-                />
-                <button className="profile-name-save" onClick={handleNameSave}>
-                  저장
-                </button>
-              </div>
-            ) : (
-              <div 
-                className="profile-name-display"
-                onClick={() => {
-                  setTempName(currentUser?.name || '');
-                  setIsEditingName(true);
-                }}
-              >
-                {currentUser?.name || '이름을 설정해주세요'}
-                <span className="profile-edit-icon">✏️</span>
-              </div>
-            )}
+            <div className="profile-name-display" style={{ cursor: 'default' }}>
+              <span style={{ 
+                display: 'inline-block',
+                width: 12,
+                height: 12,
+                borderRadius: '50%',
+                backgroundColor: currentUser?.color || 'var(--accent-primary)',
+                marginRight: 8
+              }} />
+              {currentUser?.name || ''}
+            </div>
           </div>
         </div>
       </section>

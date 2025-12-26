@@ -5,8 +5,10 @@ import {
   onSnapshot, 
   setDoc, 
   deleteDoc,
+  getDocs,
   writeBatch,
   query,
+  where,
   Unsubscribe
 } from 'firebase/firestore';
 import { db } from './firebase';
@@ -34,7 +36,8 @@ interface CalendarData {
 interface FirebaseContextType {
   // 사용자 정보
   currentUser: User | null;
-  setUserName: (name: string) => void;
+  login: (name: string) => Promise<{ success: boolean; error?: string }>;
+  register: (name: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   
   // 연결 상태
@@ -88,22 +91,18 @@ const USER_NAME_KEY = 'calendar_user_name';
 const USER_COLOR_KEY = 'calendar_user_color';
 
 export function FirebaseProvider({ children }: { children: ReactNode }) {
-  // 사용자 정보
+  // 사용자 정보 (로컬 스토리지에서 복원)
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
     const id = localStorage.getItem(USER_ID_KEY);
-    const name = localStorage.getItem(USER_NAME_KEY) || localStorage.getItem('userName') || '';
-    const color = localStorage.getItem(USER_COLOR_KEY) || USER_COLORS[0];
+    const name = localStorage.getItem(USER_NAME_KEY);
+    const color = localStorage.getItem(USER_COLOR_KEY);
     
-    if (id) {
+    // 모든 정보가 있어야 로그인 상태
+    if (id && name && color) {
       return { id, name, color };
     }
     
-    // 새 사용자 ID 생성
-    const newId = generateUserId();
-    const newColor = USER_COLORS[Math.floor(Math.random() * USER_COLORS.length)];
-    localStorage.setItem(USER_ID_KEY, newId);
-    localStorage.setItem(USER_COLOR_KEY, newColor);
-    return { id: newId, name, color: newColor };
+    return null;
   });
   
   const [isConnected, setIsConnected] = useState(false);
@@ -120,31 +119,88 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
     weeklyGoals: localStore.getWeeklyGoals(),
   });
 
-  // 사용자 이름 설정
-  const setUserName = useCallback((name: string) => {
-    localStorage.setItem(USER_NAME_KEY, name);
-    localStorage.setItem('userName', name);
-    
-    setCurrentUser(prev => {
-      if (prev) {
-        // 기존 사용자가 있으면 이름만 업데이트
-        return { ...prev, name };
-      } else {
-        // 새 사용자 생성 (로그아웃 후 재접속 시)
-        const newId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        const newColor = USER_COLORS[Math.floor(Math.random() * USER_COLORS.length)];
-        localStorage.setItem(USER_ID_KEY, newId);
-        localStorage.setItem(USER_COLOR_KEY, newColor);
-        return { id: newId, name, color: newColor };
+  // 회원가입
+  const register = useCallback(async (name: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const normalizedName = name.trim().toLowerCase();
+      
+      // 이름 중복 체크
+      const usersRef = collection(db, 'users');
+      const q = query(usersRef, where('normalizedName', '==', normalizedName));
+      const snapshot = await getDocs(q);
+      
+      if (!snapshot.empty) {
+        return { success: false, error: '이미 사용 중인 이름입니다' };
       }
-    });
-    
-    // Firebase에 사용자 정보 업데이트
-    if (roomCode && currentUser) {
-      const userRef = doc(db, 'rooms', roomCode, 'users', currentUser.id);
-      setDoc(userRef, { ...currentUser, name }, { merge: true });
+      
+      // 새 사용자 생성
+      const newId = generateUserId();
+      const newColor = USER_COLORS[Math.floor(Math.random() * USER_COLORS.length)];
+      const newUser: User & { normalizedName: string; createdAt: number } = {
+        id: newId,
+        name: name.trim(),
+        color: newColor,
+        normalizedName,
+        createdAt: Date.now(),
+      };
+      
+      // Firebase에 저장
+      await setDoc(doc(db, 'users', newId), newUser);
+      
+      // 로컬 스토리지에 저장
+      localStorage.setItem(USER_ID_KEY, newId);
+      localStorage.setItem(USER_NAME_KEY, name.trim());
+      localStorage.setItem(USER_COLOR_KEY, newColor);
+      
+      setCurrentUser({ id: newId, name: name.trim(), color: newColor });
+      
+      return { success: true };
+    } catch (error) {
+      console.error('Register error:', error);
+      return { success: false, error: 'Firebase 연결 오류' };
     }
-  }, [roomCode, currentUser]);
+  }, []);
+
+  // 로그인
+  const login = useCallback(async (name: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const normalizedName = name.trim().toLowerCase();
+      
+      // Firebase에서 사용자 찾기
+      const usersRef = collection(db, 'users');
+      const q = query(usersRef, where('normalizedName', '==', normalizedName));
+      const snapshot = await getDocs(q);
+      
+      if (snapshot.empty) {
+        return { success: false, error: '등록되지 않은 이름입니다' };
+      }
+      
+      const userData = snapshot.docs[0].data();
+      const user: User = {
+        id: userData.id,
+        name: userData.name,
+        color: userData.color,
+      };
+      
+      // 로컬 스토리지에 저장
+      localStorage.setItem(USER_ID_KEY, user.id);
+      localStorage.setItem(USER_NAME_KEY, user.name);
+      localStorage.setItem(USER_COLOR_KEY, user.color);
+      
+      // 기존 roomCode 복원
+      const savedRoomCode = localStorage.getItem(ROOM_CODE_KEY);
+      if (savedRoomCode) {
+        setRoomCode(savedRoomCode);
+      }
+      
+      setCurrentUser(user);
+      
+      return { success: true };
+    } catch (error) {
+      console.error('Login error:', error);
+      return { success: false, error: 'Firebase 연결 오류' };
+    }
+  }, []);
 
   // 로그아웃 (이름, ID 모두 삭제)
   const logout = useCallback(async () => {
@@ -592,7 +648,8 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
   return (
     <FirebaseContext.Provider value={{
       currentUser,
-      setUserName,
+      login,
+      register,
       logout,
       isConnected,
       roomCode,

@@ -11,7 +11,7 @@ import { FirebaseProvider, useFirebase } from './FirebaseContext';
 import './index.css';
 
 function App() {
-  const { currentUser, setUserName } = useFirebase();
+  const { currentUser, login, register } = useFirebase();
   const [currentView, setCurrentView] = useState<ViewType>('daily');
   const [selectedDate, setSelectedDate] = useState(new Date());
   const scrollTimeoutRef = useRef<number | null>(null);
@@ -88,13 +88,9 @@ function App() {
     }
   };
 
-  const handleOnboardingComplete = (name: string) => {
-    setUserName(name);
-  };
-
-  // 사용자 이름이 없으면 온보딩 화면 표시
-  if (!currentUser || !currentUser.name) {
-    return <OnboardingView onComplete={handleOnboardingComplete} />;
+  // 로그인 안 됐으면 온보딩 화면 표시
+  if (!currentUser) {
+    return <OnboardingView onLogin={login} onRegister={register} />;
   }
 
   return (
