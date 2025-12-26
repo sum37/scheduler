@@ -1,3 +1,9 @@
+export interface User {
+  id: string;
+  name: string;
+  color: string;
+}
+
 export interface Category {
   id: string;
   name: string;
@@ -8,9 +14,12 @@ export interface Category {
 export interface TimeBlock {
   id: string;
   date: string; // YYYY-MM-DD
-  hour: number; // 0-23
+  hour: number; // 0-47 (30분 단위)
   categoryId: string | null;
   note: string;
+  userId?: string;
+  userName?: string;
+  userColor?: string;
 }
 
 export interface Todo {
@@ -19,6 +28,9 @@ export interface Todo {
   text: string;
   completed: boolean;
   order: number;
+  userId?: string;
+  userName?: string;
+  userColor?: string;
 }
 
 export interface Event {
@@ -27,6 +39,9 @@ export interface Event {
   title: string;
   time?: string;
   note?: string;
+  userId?: string;
+  userName?: string;
+  userColor?: string;
 }
 
 export interface WeeklyGoal {
@@ -35,7 +50,9 @@ export interface WeeklyGoal {
   text: string;
   completed: boolean;
   order: number;
+  userId?: string;
+  userName?: string;
+  userColor?: string;
 }
 
 export type ViewType = 'daily' | 'weekly' | 'monthly' | 'stats';
-

@@ -10,8 +10,18 @@ import {
   Unsubscribe
 } from 'firebase/firestore';
 import { db } from './firebase';
-import { Category, TimeBlock, Todo, Event, WeeklyGoal } from './types';
+import { User, Category, TimeBlock, Todo, Event, WeeklyGoal } from './types';
 import * as localStore from './store';
+
+// 사용자 색상 옵션
+const USER_COLORS = [
+  '#6ea89e', // 민트 (기본)
+  '#e8a87c', // 살구
+  '#c38d9e', // 로즈
+  '#41b3a3', // 틸
+  '#e27d60', // 코랄
+  '#85cdca', // 아쿠아
+];
 
 interface CalendarData {
   categories: Category[];
@@ -22,19 +32,24 @@ interface CalendarData {
 }
 
 interface FirebaseContextType {
+  // 사용자 정보
+  currentUser: User | null;
+  setUserName: (name: string) => void;
+  
   // 연결 상태
   isConnected: boolean;
   roomCode: string | null;
+  roomUsers: User[];
   
   // 룸 관리
   createRoom: () => Promise<string>;
   joinRoom: (code: string) => Promise<boolean>;
   leaveRoom: () => void;
   
-  // 데이터
+  // 데이터 (모든 사용자의 데이터)
   data: CalendarData;
   
-  // 데이터 조작
+  // 데이터 조작 (현재 사용자 데이터만)
   updateCategories: (categories: Category[]) => void;
   updateTimeBlock: (block: TimeBlock) => void;
   addTodo: (todo: Todo) => void;
@@ -60,14 +75,41 @@ function generateRoomCode(): string {
   return code;
 }
 
+// 랜덤 사용자 ID 생성
+function generateUserId(): string {
+  return `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+}
+
 // 로컬 스토리지 키
 const ROOM_CODE_KEY = 'calendar_room_code';
+const USER_ID_KEY = 'calendar_user_id';
+const USER_NAME_KEY = 'calendar_user_name';
+const USER_COLOR_KEY = 'calendar_user_color';
 
 export function FirebaseProvider({ children }: { children: ReactNode }) {
+  // 사용자 정보
+  const [currentUser, setCurrentUser] = useState<User | null>(() => {
+    const id = localStorage.getItem(USER_ID_KEY);
+    const name = localStorage.getItem(USER_NAME_KEY) || localStorage.getItem('userName') || '';
+    const color = localStorage.getItem(USER_COLOR_KEY) || USER_COLORS[0];
+    
+    if (id) {
+      return { id, name, color };
+    }
+    
+    // 새 사용자 ID 생성
+    const newId = generateUserId();
+    const newColor = USER_COLORS[Math.floor(Math.random() * USER_COLORS.length)];
+    localStorage.setItem(USER_ID_KEY, newId);
+    localStorage.setItem(USER_COLOR_KEY, newColor);
+    return { id: newId, name, color: newColor };
+  });
+  
   const [isConnected, setIsConnected] = useState(false);
   const [roomCode, setRoomCode] = useState<string | null>(() => {
     return localStorage.getItem(ROOM_CODE_KEY);
   });
+  const [roomUsers, setRoomUsers] = useState<User[]>([]);
   
   const [data, setData] = useState<CalendarData>({
     categories: localStore.getCategories(),
@@ -77,9 +119,22 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
     weeklyGoals: localStore.getWeeklyGoals(),
   });
 
+  // 사용자 이름 설정
+  const setUserName = useCallback((name: string) => {
+    localStorage.setItem(USER_NAME_KEY, name);
+    localStorage.setItem('userName', name);
+    setCurrentUser(prev => prev ? { ...prev, name } : null);
+    
+    // Firebase에 사용자 정보 업데이트
+    if (roomCode && currentUser) {
+      const userRef = doc(db, 'rooms', roomCode, 'users', currentUser.id);
+      setDoc(userRef, { ...currentUser, name }, { merge: true });
+    }
+  }, [roomCode, currentUser]);
+
   // Firebase 실시간 리스너 설정
   useEffect(() => {
-    if (!roomCode) {
+    if (!roomCode || !currentUser) {
       setIsConnected(false);
       return;
     }
@@ -87,6 +142,21 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
     const unsubscribers: Unsubscribe[] = [];
 
     try {
+      // 현재 사용자를 room에 등록
+      const userRef = doc(db, 'rooms', roomCode, 'users', currentUser.id);
+      setDoc(userRef, currentUser, { merge: true });
+      
+      // Users 리스너
+      const usersRef = collection(db, 'rooms', roomCode, 'users');
+      unsubscribers.push(
+        onSnapshot(query(usersRef), (snapshot) => {
+          const users = snapshot.docs.map(doc => doc.data() as User);
+          setRoomUsers(users);
+        }, (error) => {
+          console.error('Users listener error:', error);
+        })
+      );
+
       // Categories 리스너
       const categoriesRef = collection(db, 'rooms', roomCode, 'categories');
       unsubscribers.push(
@@ -94,7 +164,6 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
           if (!snapshot.empty) {
             const categories = snapshot.docs.map(doc => doc.data() as Category);
             setData(prev => ({ ...prev, categories }));
-            localStore.saveCategories(categories);
           }
         }, (error) => {
           console.error('Categories listener error:', error);
@@ -107,7 +176,6 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
         onSnapshot(query(timeBlocksRef), (snapshot) => {
           const timeBlocks = snapshot.docs.map(doc => doc.data() as TimeBlock);
           setData(prev => ({ ...prev, timeBlocks }));
-          localStore.saveTimeBlocks(timeBlocks);
         }, (error) => {
           console.error('TimeBlocks listener error:', error);
         })
@@ -119,7 +187,6 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
         onSnapshot(query(todosRef), (snapshot) => {
           const todos = snapshot.docs.map(doc => doc.data() as Todo);
           setData(prev => ({ ...prev, todos }));
-          localStore.saveTodos(todos);
         }, (error) => {
           console.error('Todos listener error:', error);
         })
@@ -131,7 +198,6 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
         onSnapshot(query(eventsRef), (snapshot) => {
           const events = snapshot.docs.map(doc => doc.data() as Event);
           setData(prev => ({ ...prev, events }));
-          localStore.saveEvents(events);
         }, (error) => {
           console.error('Events listener error:', error);
         })
@@ -143,7 +209,6 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
         onSnapshot(query(weeklyGoalsRef), (snapshot) => {
           const weeklyGoals = snapshot.docs.map(doc => doc.data() as WeeklyGoal);
           setData(prev => ({ ...prev, weeklyGoals }));
-          localStore.saveWeeklyGoals(weeklyGoals);
         }, (error) => {
           console.error('WeeklyGoals listener error:', error);
         })
@@ -158,14 +223,18 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
     return () => {
       unsubscribers.forEach(unsub => unsub());
     };
-  }, [roomCode]);
+  }, [roomCode, currentUser]);
 
   // 새 룸 생성
   const createRoom = useCallback(async (): Promise<string> => {
-    const code = generateRoomCode();
+    if (!currentUser) throw new Error('User not initialized');
     
-    // 현재 로컬 데이터를 Firebase에 업로드
+    const code = generateRoomCode();
     const batch = writeBatch(db);
+    
+    // 사용자 등록
+    const userRef = doc(db, 'rooms', code, 'users', currentUser.id);
+    batch.set(userRef, currentUser);
     
     // Categories 업로드
     data.categories.forEach(cat => {
@@ -173,28 +242,45 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
       batch.set(ref, cat);
     });
     
-    // TimeBlocks 업로드
+    // 기존 로컬 데이터에 userId 추가하여 업로드
     data.timeBlocks.forEach(block => {
       const ref = doc(db, 'rooms', code, 'timeBlocks', block.id);
-      batch.set(ref, block);
+      batch.set(ref, { 
+        ...block, 
+        userId: currentUser.id,
+        userName: currentUser.name,
+        userColor: currentUser.color
+      });
     });
     
-    // Todos 업로드
     data.todos.forEach(todo => {
       const ref = doc(db, 'rooms', code, 'todos', todo.id);
-      batch.set(ref, todo);
+      batch.set(ref, { 
+        ...todo, 
+        userId: currentUser.id,
+        userName: currentUser.name,
+        userColor: currentUser.color
+      });
     });
     
-    // Events 업로드
     data.events.forEach(event => {
       const ref = doc(db, 'rooms', code, 'events', event.id);
-      batch.set(ref, event);
+      batch.set(ref, { 
+        ...event, 
+        userId: currentUser.id,
+        userName: currentUser.name,
+        userColor: currentUser.color
+      });
     });
     
-    // WeeklyGoals 업로드
     data.weeklyGoals.forEach(goal => {
       const ref = doc(db, 'rooms', code, 'weeklyGoals', goal.id);
-      batch.set(ref, goal);
+      batch.set(ref, { 
+        ...goal, 
+        userId: currentUser.id,
+        userName: currentUser.name,
+        userColor: currentUser.color
+      });
     });
     
     await batch.commit();
@@ -203,13 +289,18 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(ROOM_CODE_KEY, code);
     
     return code;
-  }, [data]);
+  }, [data, currentUser]);
 
   // 룸 참가
   const joinRoom = useCallback(async (code: string): Promise<boolean> => {
+    if (!currentUser) return false;
+    
     try {
-      // 코드를 대문자로 변환하고 공백 제거
       const normalizedCode = code.toUpperCase().replace(/\s/g, '');
+      
+      // 사용자를 room에 등록
+      const userRef = doc(db, 'rooms', normalizedCode, 'users', currentUser.id);
+      await setDoc(userRef, currentUser);
       
       setRoomCode(normalizedCode);
       localStorage.setItem(ROOM_CODE_KEY, normalizedCode);
@@ -219,15 +310,15 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
       console.error('Join room error:', error);
       return false;
     }
-  }, []);
+  }, [currentUser]);
 
   // 룸 나가기
   const leaveRoom = useCallback(() => {
     setRoomCode(null);
     localStorage.removeItem(ROOM_CODE_KEY);
     setIsConnected(false);
+    setRoomUsers([]);
     
-    // 로컬 데이터로 복원
     setData({
       categories: localStore.getCategories(),
       timeBlocks: localStore.getTimeBlocks(),
@@ -237,7 +328,7 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  // 데이터 조작 함수들
+  // 데이터 조작 함수들 (사용자 정보 포함)
   const updateCategories = useCallback((categories: Category[]) => {
     if (roomCode) {
       const batch = writeBatch(db);
@@ -252,39 +343,66 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
   }, [roomCode]);
 
   const updateTimeBlock = useCallback((block: TimeBlock) => {
+    if (!currentUser) return;
+    
+    const blockWithUser = {
+      ...block,
+      userId: currentUser.id,
+      userName: currentUser.name,
+      userColor: currentUser.color,
+    };
+    
     if (roomCode) {
       const ref = doc(db, 'rooms', roomCode, 'timeBlocks', block.id);
-      setDoc(ref, block);
+      setDoc(ref, blockWithUser);
     }
     localStore.updateTimeBlock(block);
     setData(prev => ({
       ...prev,
       timeBlocks: prev.timeBlocks.some(b => b.id === block.id)
-        ? prev.timeBlocks.map(b => b.id === block.id ? block : b)
-        : [...prev.timeBlocks, block]
+        ? prev.timeBlocks.map(b => b.id === block.id ? blockWithUser : b)
+        : [...prev.timeBlocks, blockWithUser]
     }));
-  }, [roomCode]);
+  }, [roomCode, currentUser]);
 
   const addTodo = useCallback((todo: Todo) => {
+    if (!currentUser) return;
+    
+    const todoWithUser = {
+      ...todo,
+      userId: currentUser.id,
+      userName: currentUser.name,
+      userColor: currentUser.color,
+    };
+    
     if (roomCode) {
       const ref = doc(db, 'rooms', roomCode, 'todos', todo.id);
-      setDoc(ref, todo);
+      setDoc(ref, todoWithUser);
     }
     localStore.addTodo(todo);
-    setData(prev => ({ ...prev, todos: [...prev.todos, todo] }));
-  }, [roomCode]);
+    setData(prev => ({ ...prev, todos: [...prev.todos, todoWithUser] }));
+  }, [roomCode, currentUser]);
 
   const updateTodo = useCallback((todo: Todo) => {
+    if (!currentUser) return;
+    
+    const todoWithUser = {
+      ...todo,
+      userId: todo.userId || currentUser.id,
+      userName: todo.userName || currentUser.name,
+      userColor: todo.userColor || currentUser.color,
+    };
+    
     if (roomCode) {
       const ref = doc(db, 'rooms', roomCode, 'todos', todo.id);
-      setDoc(ref, todo);
+      setDoc(ref, todoWithUser);
     }
     localStore.updateTodo(todo);
     setData(prev => ({
       ...prev,
-      todos: prev.todos.map(t => t.id === todo.id ? todo : t)
+      todos: prev.todos.map(t => t.id === todo.id ? todoWithUser : t)
     }));
-  }, [roomCode]);
+  }, [roomCode, currentUser]);
 
   const deleteTodo = useCallback((id: string) => {
     if (roomCode) {
@@ -299,25 +417,43 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
   }, [roomCode]);
 
   const addEvent = useCallback((event: Event) => {
+    if (!currentUser) return;
+    
+    const eventWithUser = {
+      ...event,
+      userId: currentUser.id,
+      userName: currentUser.name,
+      userColor: currentUser.color,
+    };
+    
     if (roomCode) {
       const ref = doc(db, 'rooms', roomCode, 'events', event.id);
-      setDoc(ref, event);
+      setDoc(ref, eventWithUser);
     }
     localStore.addEvent(event);
-    setData(prev => ({ ...prev, events: [...prev.events, event] }));
-  }, [roomCode]);
+    setData(prev => ({ ...prev, events: [...prev.events, eventWithUser] }));
+  }, [roomCode, currentUser]);
 
   const updateEvent = useCallback((event: Event) => {
+    if (!currentUser) return;
+    
+    const eventWithUser = {
+      ...event,
+      userId: event.userId || currentUser.id,
+      userName: event.userName || currentUser.name,
+      userColor: event.userColor || currentUser.color,
+    };
+    
     if (roomCode) {
       const ref = doc(db, 'rooms', roomCode, 'events', event.id);
-      setDoc(ref, event);
+      setDoc(ref, eventWithUser);
     }
     localStore.updateEvent(event);
     setData(prev => ({
       ...prev,
-      events: prev.events.map(e => e.id === event.id ? event : e)
+      events: prev.events.map(e => e.id === event.id ? eventWithUser : e)
     }));
-  }, [roomCode]);
+  }, [roomCode, currentUser]);
 
   const deleteEvent = useCallback((id: string) => {
     if (roomCode) {
@@ -332,25 +468,43 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
   }, [roomCode]);
 
   const addWeeklyGoal = useCallback((goal: WeeklyGoal) => {
+    if (!currentUser) return;
+    
+    const goalWithUser = {
+      ...goal,
+      userId: currentUser.id,
+      userName: currentUser.name,
+      userColor: currentUser.color,
+    };
+    
     if (roomCode) {
       const ref = doc(db, 'rooms', roomCode, 'weeklyGoals', goal.id);
-      setDoc(ref, goal);
+      setDoc(ref, goalWithUser);
     }
     localStore.addWeeklyGoal(goal);
-    setData(prev => ({ ...prev, weeklyGoals: [...prev.weeklyGoals, goal] }));
-  }, [roomCode]);
+    setData(prev => ({ ...prev, weeklyGoals: [...prev.weeklyGoals, goalWithUser] }));
+  }, [roomCode, currentUser]);
 
   const updateWeeklyGoal = useCallback((goal: WeeklyGoal) => {
+    if (!currentUser) return;
+    
+    const goalWithUser = {
+      ...goal,
+      userId: goal.userId || currentUser.id,
+      userName: goal.userName || currentUser.name,
+      userColor: goal.userColor || currentUser.color,
+    };
+    
     if (roomCode) {
       const ref = doc(db, 'rooms', roomCode, 'weeklyGoals', goal.id);
-      setDoc(ref, goal);
+      setDoc(ref, goalWithUser);
     }
     localStore.updateWeeklyGoal(goal);
     setData(prev => ({
       ...prev,
-      weeklyGoals: prev.weeklyGoals.map(g => g.id === goal.id ? goal : g)
+      weeklyGoals: prev.weeklyGoals.map(g => g.id === goal.id ? goalWithUser : g)
     }));
-  }, [roomCode]);
+  }, [roomCode, currentUser]);
 
   const deleteWeeklyGoal = useCallback((id: string) => {
     if (roomCode) {
@@ -366,8 +520,11 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
 
   return (
     <FirebaseContext.Provider value={{
+      currentUser,
+      setUserName,
       isConnected,
       roomCode,
+      roomUsers,
       createRoom,
       joinRoom,
       leaveRoom,
@@ -396,4 +553,3 @@ export function useFirebase() {
   }
   return context;
 }
-

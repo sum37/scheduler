@@ -1502,3 +1502,43 @@ body.scrolling * {
   color: #e74c3c;
   border-color: #e74c3c;
 }
+
+/* Sync Users */
+.sync-users {
+  margin-top: 8px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-light);
+}
+
+.sync-users-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.sync-users-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.sync-user-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+  border-left: 3px solid;
+  font-size: 0.85rem;
+}
+
+.sync-user-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.sync-user-name {
+  color: var(--text-primary);
+}

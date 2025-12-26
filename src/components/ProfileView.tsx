@@ -18,19 +18,16 @@ interface ProfileViewProps {
 export default function ProfileView({ date, weekStart }: ProfileViewProps) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [stats, setStats] = useState<{ categoryId: string; hours: number }[]>([]);
-  const [userName, setUserName] = useState(() => {
-    return localStorage.getItem('userName') || '';
-  });
   const [isEditingName, setIsEditingName] = useState(false);
-  const [tempName, setTempName] = useState(userName);
   const weekDays = getWeekDays(date);
   
   // Firebase 공유 관련
-  const { isConnected, roomCode, createRoom, joinRoom, leaveRoom } = useFirebase();
+  const { isConnected, roomCode, roomUsers, currentUser, setUserName, createRoom, joinRoom, leaveRoom } = useFirebase();
   const [joinCodeInput, setJoinCodeInput] = useState('');
   const [isCreatingRoom, setIsCreatingRoom] = useState(false);
   const [isJoiningRoom, setIsJoiningRoom] = useState(false);
   const [showCopySuccess, setShowCopySuccess] = useState(false);
+  const [tempName, setTempName] = useState(currentUser?.name || '');
 
   const loadData = useCallback(() => {
     setCategories(getCategories());
@@ -50,7 +47,6 @@ export default function ProfileView({ date, weekStart }: ProfileViewProps) {
 
   const handleNameSave = () => {
     setUserName(tempName);
-    localStorage.setItem('userName', tempName);
     setIsEditingName(false);
   };
 
@@ -150,6 +146,30 @@ export default function ProfileView({ date, weekStart }: ProfileViewProps) {
               💕 상대방에게 이 코드를 공유하세요!
             </p>
             
+            {roomUsers.length > 0 && (
+              <div className="sync-users">
+                <div className="sync-users-label">참가자 ({roomUsers.length}명)</div>
+                <div className="sync-users-list">
+                  {roomUsers.map(user => (
+                    <div 
+                      key={user.id} 
+                      className="sync-user-item"
+                      style={{ borderColor: user.color }}
+                    >
+                      <span 
+                        className="sync-user-dot" 
+                        style={{ backgroundColor: user.color }}
+                      />
+                      <span className="sync-user-name">
+                        {user.name || '이름 없음'}
+                        {user.id === currentUser?.id && ' (나)'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
             <button 
               className="sync-leave-btn"
               onClick={leaveRoom}
@@ -237,11 +257,11 @@ export default function ProfileView({ date, weekStart }: ProfileViewProps) {
               <div 
                 className="profile-name-display"
                 onClick={() => {
-                  setTempName(userName);
+                  setTempName(currentUser?.name || '');
                   setIsEditingName(true);
                 }}
               >
-                {userName || '이름을 설정해주세요'}
+                {currentUser?.name || '이름을 설정해주세요'}
                 <span className="profile-edit-icon">✏️</span>
               </div>
             )}
