@@ -124,7 +124,20 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
   const setUserName = useCallback((name: string) => {
     localStorage.setItem(USER_NAME_KEY, name);
     localStorage.setItem('userName', name);
-    setCurrentUser(prev => prev ? { ...prev, name } : null);
+    
+    setCurrentUser(prev => {
+      if (prev) {
+        // 기존 사용자가 있으면 이름만 업데이트
+        return { ...prev, name };
+      } else {
+        // 새 사용자 생성 (로그아웃 후 재접속 시)
+        const newId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const newColor = USER_COLORS[Math.floor(Math.random() * USER_COLORS.length)];
+        localStorage.setItem(USER_ID_KEY, newId);
+        localStorage.setItem(USER_COLOR_KEY, newColor);
+        return { id: newId, name, color: newColor };
+      }
+    });
     
     // Firebase에 사용자 정보 업데이트
     if (roomCode && currentUser) {
