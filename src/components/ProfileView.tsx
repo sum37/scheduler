@@ -22,7 +22,7 @@ export default function ProfileView({ date, weekStart }: ProfileViewProps) {
   const weekDays = getWeekDays(date);
   
   // Firebase 공유 관련
-  const { isConnected, roomCode, roomUsers, currentUser, setUserName, createRoom, joinRoom, leaveRoom } = useFirebase();
+  const { isConnected, roomCode, roomUsers, currentUser, setUserName, logout, createRoom, joinRoom, leaveRoom } = useFirebase();
   const [joinCodeInput, setJoinCodeInput] = useState('');
   const [isCreatingRoom, setIsCreatingRoom] = useState(false);
   const [isJoiningRoom, setIsJoiningRoom] = useState(false);
@@ -501,6 +501,21 @@ export default function ProfileView({ date, weekStart }: ProfileViewProps) {
           </div>
         </section>
       )}
+
+      {/* 로그아웃 섹션 */}
+      <section style={{ marginTop: 32, paddingTop: 24, borderTop: '1px solid var(--border-light)' }}>
+        <button className="logout-button" onClick={logout}>
+          로그아웃
+        </button>
+        <p style={{ 
+          fontSize: '0.75rem', 
+          color: 'var(--text-muted)', 
+          textAlign: 'center',
+          marginTop: 8 
+        }}>
+          로그아웃하면 이름과 공유 정보가 삭제됩니다
+        </p>
+      </section>
     </div>
   );
 }

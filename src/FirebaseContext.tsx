@@ -35,6 +35,7 @@ interface FirebaseContextType {
   // 사용자 정보
   currentUser: User | null;
   setUserName: (name: string) => void;
+  logout: () => void;
   
   // 연결 상태
   isConnected: boolean;
@@ -130,6 +131,40 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
       const userRef = doc(db, 'rooms', roomCode, 'users', currentUser.id);
       setDoc(userRef, { ...currentUser, name }, { merge: true });
     }
+  }, [roomCode, currentUser]);
+
+  // 로그아웃 (이름, ID 모두 삭제)
+  const logout = useCallback(async () => {
+    // 먼저 룸에서 나가기
+    if (roomCode && currentUser) {
+      try {
+        const userRef = doc(db, 'rooms', roomCode, 'users', currentUser.id);
+        await deleteDoc(userRef);
+      } catch (error) {
+        console.error('[Firebase] Error removing user on logout:', error);
+      }
+    }
+    
+    // 로컬 스토리지 초기화
+    localStorage.removeItem(USER_ID_KEY);
+    localStorage.removeItem(USER_NAME_KEY);
+    localStorage.removeItem(USER_COLOR_KEY);
+    localStorage.removeItem(ROOM_CODE_KEY);
+    localStorage.removeItem('userName');
+    
+    // 상태 초기화
+    setCurrentUser(null);
+    setRoomCode(null);
+    setIsConnected(false);
+    setRoomUsers([]);
+    
+    setData({
+      categories: localStore.getCategories(),
+      timeBlocks: localStore.getTimeBlocks(),
+      todos: localStore.getTodos(),
+      events: localStore.getEvents(),
+      weeklyGoals: localStore.getWeeklyGoals(),
+    });
   }, [roomCode, currentUser]);
 
   // Firebase 실시간 리스너 설정
@@ -313,7 +348,18 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
   }, [currentUser]);
 
   // 룸 나가기
-  const leaveRoom = useCallback(() => {
+  const leaveRoom = useCallback(async () => {
+    // Firebase에서 사용자 삭제 (다른 사용자에게 알림)
+    if (roomCode && currentUser) {
+      try {
+        const userRef = doc(db, 'rooms', roomCode, 'users', currentUser.id);
+        await deleteDoc(userRef);
+        console.log('[Firebase] User removed from room');
+      } catch (error) {
+        console.error('[Firebase] Error removing user:', error);
+      }
+    }
+    
     setRoomCode(null);
     localStorage.removeItem(ROOM_CODE_KEY);
     setIsConnected(false);
@@ -326,7 +372,7 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
       events: localStore.getEvents(),
       weeklyGoals: localStore.getWeeklyGoals(),
     });
-  }, []);
+  }, [roomCode, currentUser]);
 
   // 데이터 조작 함수들 (사용자 정보 포함)
   const updateCategories = useCallback((categories: Category[]) => {
@@ -366,7 +412,12 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
   }, [roomCode, currentUser]);
 
   const addTodo = useCallback((todo: Todo) => {
-    if (!currentUser) return;
+    console.log('[Firebase] addTodo called', { todo, currentUser, roomCode });
+    
+    if (!currentUser) {
+      console.warn('[Firebase] No currentUser, skipping');
+      return;
+    }
     
     const todoWithUser = {
       ...todo,
@@ -376,8 +427,15 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
     };
     
     if (roomCode) {
+      console.log('[Firebase] Saving to Firebase:', roomCode, todoWithUser);
       const ref = doc(db, 'rooms', roomCode, 'todos', todo.id);
-      setDoc(ref, todoWithUser);
+      setDoc(ref, todoWithUser).then(() => {
+        console.log('[Firebase] Todo saved successfully');
+      }).catch((err) => {
+        console.error('[Firebase] Todo save error:', err);
+      });
+    } else {
+      console.warn('[Firebase] No roomCode, saving locally only');
     }
     localStore.addTodo(todo);
     setData(prev => ({ ...prev, todos: [...prev.todos, todoWithUser] }));
@@ -522,6 +580,7 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
     <FirebaseContext.Provider value={{
       currentUser,
       setUserName,
+      logout,
       isConnected,
       roomCode,
       roomUsers,

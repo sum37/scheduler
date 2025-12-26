@@ -1542,3 +1542,130 @@ body.scrolling * {
 .sync-user-name {
   color: var(--text-primary);
 }
+
+/* ===== Onboarding View ===== */
+.onboarding-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: var(--bg-primary);
+}
+
+.onboarding-card {
+  background: var(--bg-card);
+  border-radius: var(--radius-xl);
+  padding: 48px 32px;
+  max-width: 360px;
+  width: 100%;
+  text-align: center;
+  box-shadow: var(--shadow-lg);
+}
+
+.onboarding-icon {
+  font-size: 64px;
+  margin-bottom: 16px;
+  animation: bounce 2s ease-in-out infinite;
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+.onboarding-title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 8px 0;
+}
+
+.onboarding-subtitle {
+  font-size: 0.95rem;
+  color: var(--text-muted);
+  margin: 0 0 32px 0;
+  line-height: 1.5;
+}
+
+.onboarding-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.onboarding-input-wrapper {
+  position: relative;
+}
+
+.onboarding-input {
+  width: 100%;
+  padding: 16px 20px;
+  font-size: 1rem;
+  border: 2px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+}
+
+.onboarding-input:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  background: var(--bg-card);
+  box-shadow: 0 0 0 4px var(--accent-glow);
+}
+
+.onboarding-input::placeholder {
+  color: var(--text-muted);
+}
+
+.onboarding-button {
+  padding: 16px 24px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: white;
+  background: var(--accent-primary);
+  border: none;
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.onboarding-button:hover:not(:disabled) {
+  background: var(--accent-hover);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.onboarding-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.onboarding-hint {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin: 24px 0 0 0;
+}
+
+/* ===== Logout Button ===== */
+.logout-button {
+  width: 100%;
+  padding: 14px;
+  margin-top: 16px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--danger);
+  background: transparent;
+  border: 1px solid var(--danger);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.logout-button:hover {
+  background: var(--danger);
+  color: white;
+}

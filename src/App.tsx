@@ -6,10 +6,12 @@ import DailyView from './components/DailyView';
 import WeeklyView from './components/WeeklyView';
 import MonthlyView from './components/MonthlyView';
 import ProfileView from './components/ProfileView';
-import { FirebaseProvider } from './FirebaseContext';
+import OnboardingView from './components/OnboardingView';
+import { FirebaseProvider, useFirebase } from './FirebaseContext';
 import './index.css';
 
 function App() {
+  const { currentUser, setUserName } = useFirebase();
   const [currentView, setCurrentView] = useState<ViewType>('daily');
   const [selectedDate, setSelectedDate] = useState(new Date());
   const scrollTimeoutRef = useRef<number | null>(null);
@@ -85,6 +87,15 @@ function App() {
       setCurrentView('daily');
     }
   };
+
+  const handleOnboardingComplete = (name: string) => {
+    setUserName(name);
+  };
+
+  // 사용자 이름이 없으면 온보딩 화면 표시
+  if (!currentUser || !currentUser.name) {
+    return <OnboardingView onComplete={handleOnboardingComplete} />;
+  }
 
   return (
     <div className="app">
