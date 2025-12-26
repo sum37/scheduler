@@ -36,6 +36,7 @@ export default function DailyView({ dateString }: DailyViewProps) {
   // Firebase에서 실시간 데이터 가져오기
   const { 
     data, 
+    currentUser,
     updateTimeBlock, 
     addTodo, 
     updateTodo, 
@@ -48,26 +49,43 @@ export default function DailyView({ dateString }: DailyViewProps) {
     [data.timeBlocks, dateString]
   );
   
+  // 내 time blocks와 타인의 time blocks 구분
+  const myTimeBlocks = useMemo(() => 
+    timeBlocks.filter(b => b.userId === currentUser?.id),
+    [timeBlocks, currentUser]
+  );
+  
+  const othersTimeBlocks = useMemo(() => 
+    timeBlocks.filter(b => b.userId && b.userId !== currentUser?.id),
+    [timeBlocks, currentUser]
+  );
+  
   const todos = useMemo(() => 
     data.todos.filter(t => t.date === dateString).sort((a, b) => a.order - b.order),
     [data.todos, dateString]
   );
 
-  // 30분 슬롯에 해당하는 블록 가져오기
-  const getBlockForSlot = (slot: number): TimeBlock => {
-    const existing = timeBlocks.find(b => b.hour === slot);
+  // 30분 슬롯에 해당하는 내 블록 가져오기
+  const getMyBlockForSlot = (slot: number): TimeBlock => {
+    const existing = myTimeBlocks.find(b => b.hour === slot);
     if (existing) return existing;
     return {
       id: generateId(),
       date: dateString,
-      hour: slot, // slot을 hour 필드에 저장 (0-47)
+      hour: slot,
       categoryId: null,
       note: '',
+      userId: currentUser?.id,
     };
+  };
+  
+  // 30분 슬롯에 해당하는 타인의 블록들 가져오기
+  const getOthersBlocksForSlot = (slot: number): TimeBlock[] => {
+    return othersTimeBlocks.filter(b => b.hour === slot && b.note?.trim());
   };
 
   const handleBlockClick = (slot: number) => {
-    const block = getBlockForSlot(slot);
+    const block = getMyBlockForSlot(slot);
     setSelectedBlock(block);
     setIsPickerOpen(true);
   };
@@ -193,13 +211,18 @@ export default function DailyView({ dateString }: DailyViewProps) {
         <section className="card">
           <div className="time-blocks">
             {TIME_SLOTS.map(slot => {
-              const block = getBlockForSlot(slot);
-              const hasContent = block.note.trim().length > 0;
+              const myBlock = getMyBlockForSlot(slot);
+              const othersBlocks = getOthersBlocksForSlot(slot);
+              const hasMyContent = myBlock.note?.trim().length > 0;
+              const hasOthersContent = othersBlocks.length > 0;
               
               return (
                 <div 
                   key={slot} 
                   className="time-block"
+                  style={{
+                    minHeight: hasOthersContent ? 'auto' : undefined,
+                  }}
                 >
                   <div 
                     className="time-block-hour"
@@ -209,30 +232,65 @@ export default function DailyView({ dateString }: DailyViewProps) {
                   >
                     {formatSlotTimeShort(slot)}
                   </div>
-                  <div
-                    className="time-block-content"
-                    onClick={() => handleBlockClick(slot)}
-                    style={{
-                      background: hasContent ? 'var(--accent-glow)' : undefined,
-                    }}
-                  >
-                    {hasContent && (
-                      <div
-                        className="time-block-category"
-                        style={{ 
-                          backgroundColor: 'var(--accent-primary)'
-                        }}
-                      />
-                    )}
-                    <span 
-                      className={`time-block-note ${!hasContent ? 'empty' : ''}`}
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    {/* 내 time block */}
+                    <div
+                      className="time-block-content"
+                      onClick={() => handleBlockClick(slot)}
                       style={{
-                        whiteSpace: 'pre-wrap',
-                        lineHeight: 1.4,
+                        background: hasMyContent ? 'var(--accent-glow)' : undefined,
+                        minHeight: 36,
                       }}
                     >
-                      {block.note || ''}
-                    </span>
+                      {hasMyContent && (
+                        <div
+                          className="time-block-category"
+                          style={{ 
+                            backgroundColor: 'var(--accent-primary)'
+                          }}
+                        />
+                      )}
+                      <span 
+                        className={`time-block-note ${!hasMyContent ? 'empty' : ''}`}
+                        style={{
+                          whiteSpace: 'pre-wrap',
+                          lineHeight: 1.4,
+                        }}
+                      >
+                        {myBlock.note || ''}
+                      </span>
+                    </div>
+                    
+                    {/* 타인의 time blocks */}
+                    {othersBlocks.map(block => (
+                      <div
+                        key={block.id}
+                        className="time-block-other"
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          padding: '6px 10px',
+                          background: block.userColor ? `${block.userColor}20` : 'rgba(110, 168, 158, 0.1)',
+                          borderRadius: 'var(--radius-sm)',
+                          borderLeft: `3px solid ${block.userColor || 'var(--accent-primary)'}`,
+                          fontSize: '0.75rem',
+                        }}
+                      >
+                        <span 
+                          style={{ 
+                            fontWeight: 600, 
+                            color: block.userColor || 'var(--accent-primary)',
+                            flexShrink: 0,
+                          }}
+                        >
+                          {block.userName || '익명'}
+                        </span>
+                        <span style={{ color: 'var(--text-secondary)', flex: 1 }}>
+                          {block.note}
+                        </span>
+                      </div>
+                    ))}
                   </div>
                 </div>
               );
