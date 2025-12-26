@@ -348,7 +348,7 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
     };
   }, [roomCode, currentUser]);
 
-  // 공유 사용자들의 데이터 리스너 (다른 사용자 데이터 가져오기)
+  // 공유 사용자들의 데이터 리스너 (timeBlocks, events만 공유)
   useEffect(() => {
     if (!currentUser || roomUsers.length === 0) {
       return;
@@ -363,50 +363,39 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
     console.log('[Firebase] Setting up shared data listeners for:', otherUsers.map(u => u.name));
     const unsubscribers: Unsubscribe[] = [];
     
-    // 각 사용자별 데이터를 저장
-    const sharedDataMap: { [userId: string]: { timeBlocks: TimeBlock[]; todos: Todo[]; events: Event[]; weeklyGoals: WeeklyGoal[] } } = {};
+    // 각 사용자별 데이터를 저장 (timeBlocks, events만)
+    const sharedDataMap: { [userId: string]: { timeBlocks: TimeBlock[]; events: Event[] } } = {};
 
     const updateSharedData = () => {
-      // 모든 공유 사용자의 데이터를 병합
+      // 모든 공유 사용자의 데이터를 병합 (timeBlocks, events만)
       const allSharedTimeBlocks: TimeBlock[] = [];
-      const allSharedTodos: Todo[] = [];
       const allSharedEvents: Event[] = [];
-      const allSharedWeeklyGoals: WeeklyGoal[] = [];
 
       Object.values(sharedDataMap).forEach(userData => {
         allSharedTimeBlocks.push(...userData.timeBlocks);
-        allSharedTodos.push(...userData.todos);
         allSharedEvents.push(...userData.events);
-        allSharedWeeklyGoals.push(...userData.weeklyGoals);
       });
 
       setData(prev => ({
         ...prev,
-        // 내 데이터 + 공유 데이터 병합 (중복 제거)
+        // 내 데이터 + 공유 데이터 병합 (timeBlocks, events만)
         timeBlocks: [
           ...prev.timeBlocks.filter(b => b.userId === currentUser.id),
           ...allSharedTimeBlocks
-        ],
-        todos: [
-          ...prev.todos.filter(t => t.userId === currentUser.id),
-          ...allSharedTodos
         ],
         events: [
           ...prev.events.filter(e => e.userId === currentUser.id),
           ...allSharedEvents
         ],
-        weeklyGoals: [
-          ...prev.weeklyGoals.filter(g => g.userId === currentUser.id),
-          ...allSharedWeeklyGoals
-        ],
+        // todos, weeklyGoals는 공유하지 않음 (개인 데이터만)
       }));
     };
 
     otherUsers.forEach(user => {
       // 초기화
-      sharedDataMap[user.id] = { timeBlocks: [], todos: [], events: [], weeklyGoals: [] };
+      sharedDataMap[user.id] = { timeBlocks: [], events: [] };
 
-      // TimeBlocks 리스너
+      // TimeBlocks 리스너 (공유됨)
       const timeBlocksRef = collection(db, 'userData', user.id, 'timeBlocks');
       unsubscribers.push(
         onSnapshot(query(timeBlocksRef), (snapshot) => {
@@ -418,19 +407,7 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
         })
       );
 
-      // Todos 리스너
-      const todosRef = collection(db, 'userData', user.id, 'todos');
-      unsubscribers.push(
-        onSnapshot(query(todosRef), (snapshot) => {
-          sharedDataMap[user.id].todos = snapshot.docs.map(doc => doc.data() as Todo);
-          console.log(`[Firebase] Shared Todos from ${user.name}:`, sharedDataMap[user.id].todos.length);
-          updateSharedData();
-        }, (error) => {
-          console.error(`Todos listener error for ${user.name}:`, error);
-        })
-      );
-
-      // Events 리스너
+      // Events 리스너 (공유됨)
       const eventsRef = collection(db, 'userData', user.id, 'events');
       unsubscribers.push(
         onSnapshot(query(eventsRef), (snapshot) => {
@@ -442,17 +419,7 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
         })
       );
 
-      // WeeklyGoals 리스너
-      const weeklyGoalsRef = collection(db, 'userData', user.id, 'weeklyGoals');
-      unsubscribers.push(
-        onSnapshot(query(weeklyGoalsRef), (snapshot) => {
-          sharedDataMap[user.id].weeklyGoals = snapshot.docs.map(doc => doc.data() as WeeklyGoal);
-          console.log(`[Firebase] Shared WeeklyGoals from ${user.name}:`, sharedDataMap[user.id].weeklyGoals.length);
-          updateSharedData();
-        }, (error) => {
-          console.error(`WeeklyGoals listener error for ${user.name}:`, error);
-        })
-      );
+      // Todos, WeeklyGoals는 공유하지 않음 (개인 데이터)
     });
 
     return () => {
