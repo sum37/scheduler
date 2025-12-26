@@ -261,8 +261,14 @@ export default function DailyView({ dateString }: DailyViewProps) {
                       </span>
                     </div>
                     
-                    {/* 타인의 time blocks */}
-                    {othersBlocks.map(block => (
+                    {/* 타인의 time blocks - 가로 2열 배치 */}
+                    {othersBlocks.length > 0 && (
+                      <div style={{ 
+                        display: 'flex', 
+                        flexWrap: 'wrap', 
+                        gap: 4,
+                      }}>
+                        {othersBlocks.map(block => (
                       <div
                         key={block.id}
                         className="time-block-other"
@@ -303,7 +309,9 @@ export default function DailyView({ dateString }: DailyViewProps) {
                           {block.note}
                         </span>
                       </div>
-                    ))}
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               );
