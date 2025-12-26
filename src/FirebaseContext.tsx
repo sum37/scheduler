@@ -202,27 +202,17 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // 로그아웃 (이름, ID 모두 삭제)
+  // 로그아웃 (사용자 정보만 삭제, 공유 상태는 유지)
   const logout = useCallback(async () => {
-    // 먼저 룸에서 나가기
-    if (roomCode && currentUser) {
-      try {
-        const userRef = doc(db, 'rooms', roomCode, 'users', currentUser.id);
-        await deleteDoc(userRef);
-      } catch (error) {
-        console.error('[Firebase] Error removing user on logout:', error);
-      }
-    }
-    
-    // 로컬 스토리지 초기화
+    // 로컬 스토리지에서 사용자 정보만 초기화 (roomCode는 유지!)
     localStorage.removeItem(USER_ID_KEY);
     localStorage.removeItem(USER_NAME_KEY);
     localStorage.removeItem(USER_COLOR_KEY);
-    localStorage.removeItem(ROOM_CODE_KEY);
+    // localStorage.removeItem(ROOM_CODE_KEY); // 공유 상태 유지를 위해 삭제하지 않음
     
-    // 상태 초기화
+    // 상태 초기화 (roomCode는 유지)
     setCurrentUser(null);
-    setRoomCode(null);
+    // setRoomCode(null); // 공유 상태 유지
     setIsConnected(false);
     setRoomUsers([]);
     setData({
@@ -232,7 +222,7 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
       events: [],
       weeklyGoals: [],
     });
-  }, [roomCode, currentUser]);
+  }, []);
 
   // 개인 데이터 Firebase 리스너 (로그인 시)
   useEffect(() => {
@@ -352,6 +342,119 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
       unsubscribers.forEach(unsub => unsub());
     };
   }, [roomCode, currentUser]);
+
+  // 공유 사용자들의 데이터 리스너 (다른 사용자 데이터 가져오기)
+  useEffect(() => {
+    if (!currentUser || roomUsers.length === 0) {
+      return;
+    }
+
+    // 나를 제외한 다른 사용자들
+    const otherUsers = roomUsers.filter(u => u.id !== currentUser.id);
+    if (otherUsers.length === 0) {
+      return;
+    }
+
+    console.log('[Firebase] Setting up shared data listeners for:', otherUsers.map(u => u.name));
+    const unsubscribers: Unsubscribe[] = [];
+    
+    // 각 사용자별 데이터를 저장
+    const sharedDataMap: { [userId: string]: { timeBlocks: TimeBlock[]; todos: Todo[]; events: Event[]; weeklyGoals: WeeklyGoal[] } } = {};
+
+    const updateSharedData = () => {
+      // 모든 공유 사용자의 데이터를 병합
+      const allSharedTimeBlocks: TimeBlock[] = [];
+      const allSharedTodos: Todo[] = [];
+      const allSharedEvents: Event[] = [];
+      const allSharedWeeklyGoals: WeeklyGoal[] = [];
+
+      Object.values(sharedDataMap).forEach(userData => {
+        allSharedTimeBlocks.push(...userData.timeBlocks);
+        allSharedTodos.push(...userData.todos);
+        allSharedEvents.push(...userData.events);
+        allSharedWeeklyGoals.push(...userData.weeklyGoals);
+      });
+
+      setData(prev => ({
+        ...prev,
+        // 내 데이터 + 공유 데이터 병합 (중복 제거)
+        timeBlocks: [
+          ...prev.timeBlocks.filter(b => b.userId === currentUser.id),
+          ...allSharedTimeBlocks
+        ],
+        todos: [
+          ...prev.todos.filter(t => t.userId === currentUser.id),
+          ...allSharedTodos
+        ],
+        events: [
+          ...prev.events.filter(e => e.userId === currentUser.id),
+          ...allSharedEvents
+        ],
+        weeklyGoals: [
+          ...prev.weeklyGoals.filter(g => g.userId === currentUser.id),
+          ...allSharedWeeklyGoals
+        ],
+      }));
+    };
+
+    otherUsers.forEach(user => {
+      // 초기화
+      sharedDataMap[user.id] = { timeBlocks: [], todos: [], events: [], weeklyGoals: [] };
+
+      // TimeBlocks 리스너
+      const timeBlocksRef = collection(db, 'userData', user.id, 'timeBlocks');
+      unsubscribers.push(
+        onSnapshot(query(timeBlocksRef), (snapshot) => {
+          sharedDataMap[user.id].timeBlocks = snapshot.docs.map(doc => doc.data() as TimeBlock);
+          console.log(`[Firebase] Shared TimeBlocks from ${user.name}:`, sharedDataMap[user.id].timeBlocks.length);
+          updateSharedData();
+        }, (error) => {
+          console.error(`TimeBlocks listener error for ${user.name}:`, error);
+        })
+      );
+
+      // Todos 리스너
+      const todosRef = collection(db, 'userData', user.id, 'todos');
+      unsubscribers.push(
+        onSnapshot(query(todosRef), (snapshot) => {
+          sharedDataMap[user.id].todos = snapshot.docs.map(doc => doc.data() as Todo);
+          console.log(`[Firebase] Shared Todos from ${user.name}:`, sharedDataMap[user.id].todos.length);
+          updateSharedData();
+        }, (error) => {
+          console.error(`Todos listener error for ${user.name}:`, error);
+        })
+      );
+
+      // Events 리스너
+      const eventsRef = collection(db, 'userData', user.id, 'events');
+      unsubscribers.push(
+        onSnapshot(query(eventsRef), (snapshot) => {
+          sharedDataMap[user.id].events = snapshot.docs.map(doc => doc.data() as Event);
+          console.log(`[Firebase] Shared Events from ${user.name}:`, sharedDataMap[user.id].events.length);
+          updateSharedData();
+        }, (error) => {
+          console.error(`Events listener error for ${user.name}:`, error);
+        })
+      );
+
+      // WeeklyGoals 리스너
+      const weeklyGoalsRef = collection(db, 'userData', user.id, 'weeklyGoals');
+      unsubscribers.push(
+        onSnapshot(query(weeklyGoalsRef), (snapshot) => {
+          sharedDataMap[user.id].weeklyGoals = snapshot.docs.map(doc => doc.data() as WeeklyGoal);
+          console.log(`[Firebase] Shared WeeklyGoals from ${user.name}:`, sharedDataMap[user.id].weeklyGoals.length);
+          updateSharedData();
+        }, (error) => {
+          console.error(`WeeklyGoals listener error for ${user.name}:`, error);
+        })
+      );
+    });
+
+    return () => {
+      console.log('[Firebase] Cleaning up shared data listeners');
+      unsubscribers.forEach(unsub => unsub());
+    };
+  }, [currentUser, roomUsers]);
 
   // 새 룸 생성
   const createRoom = useCallback(async (): Promise<string> => {
