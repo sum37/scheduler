@@ -112,11 +112,11 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
   const [roomUsers, setRoomUsers] = useState<User[]>([]);
   
   const [data, setData] = useState<CalendarData>({
-    categories: localStore.getCategories(),
-    timeBlocks: localStore.getTimeBlocks(),
-    todos: localStore.getTodos(),
-    events: localStore.getEvents(),
-    weeklyGoals: localStore.getWeeklyGoals(),
+    categories: [],
+    timeBlocks: [],
+    todos: [],
+    events: [],
+    weeklyGoals: [],
   });
 
   // 회원가입
@@ -144,8 +144,14 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
         createdAt: Date.now(),
       };
       
-      // Firebase에 저장
+      // Firebase에 사용자 정보 저장
       await setDoc(doc(db, 'users', newId), newUser);
+      
+      // 기본 카테고리 저장
+      const defaultCategories = localStore.getCategories();
+      for (const cat of defaultCategories) {
+        await setDoc(doc(db, 'userData', newId, 'categories', cat.id), cat);
+      }
       
       // 로컬 스토리지에 저장
       localStorage.setItem(USER_ID_KEY, newId);
@@ -187,12 +193,6 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
       localStorage.setItem(USER_NAME_KEY, user.name);
       localStorage.setItem(USER_COLOR_KEY, user.color);
       
-      // 기존 roomCode 복원
-      const savedRoomCode = localStorage.getItem(ROOM_CODE_KEY);
-      if (savedRoomCode) {
-        setRoomCode(savedRoomCode);
-      }
-      
       setCurrentUser(user);
       
       return { success: true };
@@ -219,66 +219,50 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem(USER_NAME_KEY);
     localStorage.removeItem(USER_COLOR_KEY);
     localStorage.removeItem(ROOM_CODE_KEY);
-    localStorage.removeItem('userName');
     
     // 상태 초기화
     setCurrentUser(null);
     setRoomCode(null);
     setIsConnected(false);
     setRoomUsers([]);
-    
     setData({
-      categories: localStore.getCategories(),
-      timeBlocks: localStore.getTimeBlocks(),
-      todos: localStore.getTodos(),
-      events: localStore.getEvents(),
-      weeklyGoals: localStore.getWeeklyGoals(),
+      categories: [],
+      timeBlocks: [],
+      todos: [],
+      events: [],
+      weeklyGoals: [],
     });
   }, [roomCode, currentUser]);
 
-  // Firebase 실시간 리스너 설정
+  // 개인 데이터 Firebase 리스너 (로그인 시)
   useEffect(() => {
-    if (!roomCode || !currentUser) {
-      setIsConnected(false);
+    if (!currentUser) {
       return;
     }
 
+    console.log('[Firebase] Setting up personal data listeners for:', currentUser.id);
     const unsubscribers: Unsubscribe[] = [];
+    const userId = currentUser.id;
 
     try {
-      // 현재 사용자를 room에 등록
-      const userRef = doc(db, 'rooms', roomCode, 'users', currentUser.id);
-      setDoc(userRef, currentUser, { merge: true });
-      
-      // Users 리스너
-      const usersRef = collection(db, 'rooms', roomCode, 'users');
-      unsubscribers.push(
-        onSnapshot(query(usersRef), (snapshot) => {
-          const users = snapshot.docs.map(doc => doc.data() as User);
-          setRoomUsers(users);
-        }, (error) => {
-          console.error('Users listener error:', error);
-        })
-      );
-
       // Categories 리스너
-      const categoriesRef = collection(db, 'rooms', roomCode, 'categories');
+      const categoriesRef = collection(db, 'userData', userId, 'categories');
       unsubscribers.push(
         onSnapshot(query(categoriesRef), (snapshot) => {
-          if (!snapshot.empty) {
-            const categories = snapshot.docs.map(doc => doc.data() as Category);
-            setData(prev => ({ ...prev, categories }));
-          }
+          const categories = snapshot.docs.map(doc => doc.data() as Category);
+          console.log('[Firebase] Categories loaded:', categories.length);
+          setData(prev => ({ ...prev, categories: categories.length > 0 ? categories : localStore.getCategories() }));
         }, (error) => {
           console.error('Categories listener error:', error);
         })
       );
 
       // TimeBlocks 리스너
-      const timeBlocksRef = collection(db, 'rooms', roomCode, 'timeBlocks');
+      const timeBlocksRef = collection(db, 'userData', userId, 'timeBlocks');
       unsubscribers.push(
         onSnapshot(query(timeBlocksRef), (snapshot) => {
           const timeBlocks = snapshot.docs.map(doc => doc.data() as TimeBlock);
+          console.log('[Firebase] TimeBlocks loaded:', timeBlocks.length);
           setData(prev => ({ ...prev, timeBlocks }));
         }, (error) => {
           console.error('TimeBlocks listener error:', error);
@@ -286,10 +270,11 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
       );
 
       // Todos 리스너
-      const todosRef = collection(db, 'rooms', roomCode, 'todos');
+      const todosRef = collection(db, 'userData', userId, 'todos');
       unsubscribers.push(
         onSnapshot(query(todosRef), (snapshot) => {
           const todos = snapshot.docs.map(doc => doc.data() as Todo);
+          console.log('[Firebase] Todos loaded:', todos.length);
           setData(prev => ({ ...prev, todos }));
         }, (error) => {
           console.error('Todos listener error:', error);
@@ -297,10 +282,11 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
       );
 
       // Events 리스너
-      const eventsRef = collection(db, 'rooms', roomCode, 'events');
+      const eventsRef = collection(db, 'userData', userId, 'events');
       unsubscribers.push(
         onSnapshot(query(eventsRef), (snapshot) => {
           const events = snapshot.docs.map(doc => doc.data() as Event);
+          console.log('[Firebase] Events loaded:', events.length);
           setData(prev => ({ ...prev, events }));
         }, (error) => {
           console.error('Events listener error:', error);
@@ -308,10 +294,11 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
       );
 
       // WeeklyGoals 리스너
-      const weeklyGoalsRef = collection(db, 'rooms', roomCode, 'weeklyGoals');
+      const weeklyGoalsRef = collection(db, 'userData', userId, 'weeklyGoals');
       unsubscribers.push(
         onSnapshot(query(weeklyGoalsRef), (snapshot) => {
           const weeklyGoals = snapshot.docs.map(doc => doc.data() as WeeklyGoal);
+          console.log('[Firebase] WeeklyGoals loaded:', weeklyGoals.length);
           setData(prev => ({ ...prev, weeklyGoals }));
         }, (error) => {
           console.error('WeeklyGoals listener error:', error);
@@ -325,6 +312,43 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
     }
 
     return () => {
+      console.log('[Firebase] Cleaning up personal data listeners');
+      unsubscribers.forEach(unsub => unsub());
+    };
+  }, [currentUser]);
+
+  // 공유 방 리스너 (방 코드가 있을 때)
+  useEffect(() => {
+    if (!roomCode || !currentUser) {
+      setRoomUsers([]);
+      return;
+    }
+
+    console.log('[Firebase] Setting up room listeners for:', roomCode);
+    const unsubscribers: Unsubscribe[] = [];
+
+    try {
+      // 현재 사용자를 room에 등록
+      const userRef = doc(db, 'rooms', roomCode, 'users', currentUser.id);
+      setDoc(userRef, currentUser, { merge: true });
+      
+      // Users 리스너
+      const usersRef = collection(db, 'rooms', roomCode, 'users');
+      unsubscribers.push(
+        onSnapshot(query(usersRef), (snapshot) => {
+          const users = snapshot.docs.map(doc => doc.data() as User);
+          console.log('[Firebase] Room users:', users.length);
+          setRoomUsers(users);
+        }, (error) => {
+          console.error('Users listener error:', error);
+        })
+      );
+    } catch (error) {
+      console.error('Room connection error:', error);
+    }
+
+    return () => {
+      console.log('[Firebase] Cleaning up room listeners');
       unsubscribers.forEach(unsub => unsub());
     };
   }, [roomCode, currentUser]);
@@ -334,66 +358,16 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
     if (!currentUser) throw new Error('User not initialized');
     
     const code = generateRoomCode();
-    const batch = writeBatch(db);
     
     // 사용자 등록
     const userRef = doc(db, 'rooms', code, 'users', currentUser.id);
-    batch.set(userRef, currentUser);
-    
-    // Categories 업로드
-    data.categories.forEach(cat => {
-      const ref = doc(db, 'rooms', code, 'categories', cat.id);
-      batch.set(ref, cat);
-    });
-    
-    // 기존 로컬 데이터에 userId 추가하여 업로드
-    data.timeBlocks.forEach(block => {
-      const ref = doc(db, 'rooms', code, 'timeBlocks', block.id);
-      batch.set(ref, { 
-        ...block, 
-        userId: currentUser.id,
-        userName: currentUser.name,
-        userColor: currentUser.color
-      });
-    });
-    
-    data.todos.forEach(todo => {
-      const ref = doc(db, 'rooms', code, 'todos', todo.id);
-      batch.set(ref, { 
-        ...todo, 
-        userId: currentUser.id,
-        userName: currentUser.name,
-        userColor: currentUser.color
-      });
-    });
-    
-    data.events.forEach(event => {
-      const ref = doc(db, 'rooms', code, 'events', event.id);
-      batch.set(ref, { 
-        ...event, 
-        userId: currentUser.id,
-        userName: currentUser.name,
-        userColor: currentUser.color
-      });
-    });
-    
-    data.weeklyGoals.forEach(goal => {
-      const ref = doc(db, 'rooms', code, 'weeklyGoals', goal.id);
-      batch.set(ref, { 
-        ...goal, 
-        userId: currentUser.id,
-        userName: currentUser.name,
-        userColor: currentUser.color
-      });
-    });
-    
-    await batch.commit();
+    await setDoc(userRef, currentUser);
     
     setRoomCode(code);
     localStorage.setItem(ROOM_CODE_KEY, code);
     
     return code;
-  }, [data, currentUser]);
+  }, [currentUser]);
 
   // 룸 참가
   const joinRoom = useCallback(async (code: string): Promise<boolean> => {
@@ -431,31 +405,22 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
     
     setRoomCode(null);
     localStorage.removeItem(ROOM_CODE_KEY);
-    setIsConnected(false);
     setRoomUsers([]);
-    
-    setData({
-      categories: localStore.getCategories(),
-      timeBlocks: localStore.getTimeBlocks(),
-      todos: localStore.getTodos(),
-      events: localStore.getEvents(),
-      weeklyGoals: localStore.getWeeklyGoals(),
-    });
   }, [roomCode, currentUser]);
 
-  // 데이터 조작 함수들 (사용자 정보 포함)
+  // 데이터 조작 함수들 (사용자 정보 포함, Firebase에 저장)
   const updateCategories = useCallback((categories: Category[]) => {
-    if (roomCode) {
-      const batch = writeBatch(db);
-      categories.forEach(cat => {
-        const ref = doc(db, 'rooms', roomCode, 'categories', cat.id);
-        batch.set(ref, cat);
-      });
-      batch.commit();
-    }
-    localStore.saveCategories(categories);
+    if (!currentUser) return;
+    
+    const batch = writeBatch(db);
+    categories.forEach(cat => {
+      const ref = doc(db, 'userData', currentUser.id, 'categories', cat.id);
+      batch.set(ref, cat);
+    });
+    batch.commit();
+    
     setData(prev => ({ ...prev, categories }));
-  }, [roomCode]);
+  }, [currentUser]);
 
   const updateTimeBlock = useCallback((block: TimeBlock) => {
     if (!currentUser) return;
@@ -467,26 +432,20 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
       userColor: currentUser.color,
     };
     
-    if (roomCode) {
-      const ref = doc(db, 'rooms', roomCode, 'timeBlocks', block.id);
-      setDoc(ref, blockWithUser);
-    }
-    localStore.updateTimeBlock(block);
+    // 개인 데이터에 저장
+    const ref = doc(db, 'userData', currentUser.id, 'timeBlocks', block.id);
+    setDoc(ref, blockWithUser);
+    
     setData(prev => ({
       ...prev,
       timeBlocks: prev.timeBlocks.some(b => b.id === block.id)
         ? prev.timeBlocks.map(b => b.id === block.id ? blockWithUser : b)
         : [...prev.timeBlocks, blockWithUser]
     }));
-  }, [roomCode, currentUser]);
+  }, [currentUser]);
 
   const addTodo = useCallback((todo: Todo) => {
-    console.log('[Firebase] addTodo called', { todo, currentUser, roomCode });
-    
-    if (!currentUser) {
-      console.warn('[Firebase] No currentUser, skipping');
-      return;
-    }
+    if (!currentUser) return;
     
     const todoWithUser = {
       ...todo,
@@ -495,20 +454,12 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
       userColor: currentUser.color,
     };
     
-    if (roomCode) {
-      console.log('[Firebase] Saving to Firebase:', roomCode, todoWithUser);
-      const ref = doc(db, 'rooms', roomCode, 'todos', todo.id);
-      setDoc(ref, todoWithUser).then(() => {
-        console.log('[Firebase] Todo saved successfully');
-      }).catch((err) => {
-        console.error('[Firebase] Todo save error:', err);
-      });
-    } else {
-      console.warn('[Firebase] No roomCode, saving locally only');
-    }
-    localStore.addTodo(todo);
+    // 개인 데이터에 저장
+    const ref = doc(db, 'userData', currentUser.id, 'todos', todo.id);
+    setDoc(ref, todoWithUser);
+    
     setData(prev => ({ ...prev, todos: [...prev.todos, todoWithUser] }));
-  }, [roomCode, currentUser]);
+  }, [currentUser]);
 
   const updateTodo = useCallback((todo: Todo) => {
     if (!currentUser) return;
@@ -520,28 +471,28 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
       userColor: todo.userColor || currentUser.color,
     };
     
-    if (roomCode) {
-      const ref = doc(db, 'rooms', roomCode, 'todos', todo.id);
-      setDoc(ref, todoWithUser);
-    }
-    localStore.updateTodo(todo);
+    // 개인 데이터에 저장
+    const ref = doc(db, 'userData', currentUser.id, 'todos', todo.id);
+    setDoc(ref, todoWithUser);
+    
     setData(prev => ({
       ...prev,
       todos: prev.todos.map(t => t.id === todo.id ? todoWithUser : t)
     }));
-  }, [roomCode, currentUser]);
+  }, [currentUser]);
 
   const deleteTodo = useCallback((id: string) => {
-    if (roomCode) {
-      const ref = doc(db, 'rooms', roomCode, 'todos', id);
-      deleteDoc(ref);
-    }
-    localStore.deleteTodo(id);
+    if (!currentUser) return;
+    
+    // 개인 데이터에서 삭제
+    const ref = doc(db, 'userData', currentUser.id, 'todos', id);
+    deleteDoc(ref);
+    
     setData(prev => ({
       ...prev,
       todos: prev.todos.filter(t => t.id !== id)
     }));
-  }, [roomCode]);
+  }, [currentUser]);
 
   const addEvent = useCallback((event: Event) => {
     if (!currentUser) return;
@@ -553,13 +504,12 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
       userColor: currentUser.color,
     };
     
-    if (roomCode) {
-      const ref = doc(db, 'rooms', roomCode, 'events', event.id);
-      setDoc(ref, eventWithUser);
-    }
-    localStore.addEvent(event);
+    // 개인 데이터에 저장
+    const ref = doc(db, 'userData', currentUser.id, 'events', event.id);
+    setDoc(ref, eventWithUser);
+    
     setData(prev => ({ ...prev, events: [...prev.events, eventWithUser] }));
-  }, [roomCode, currentUser]);
+  }, [currentUser]);
 
   const updateEvent = useCallback((event: Event) => {
     if (!currentUser) return;
@@ -571,28 +521,28 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
       userColor: event.userColor || currentUser.color,
     };
     
-    if (roomCode) {
-      const ref = doc(db, 'rooms', roomCode, 'events', event.id);
-      setDoc(ref, eventWithUser);
-    }
-    localStore.updateEvent(event);
+    // 개인 데이터에 저장
+    const ref = doc(db, 'userData', currentUser.id, 'events', event.id);
+    setDoc(ref, eventWithUser);
+    
     setData(prev => ({
       ...prev,
       events: prev.events.map(e => e.id === event.id ? eventWithUser : e)
     }));
-  }, [roomCode, currentUser]);
+  }, [currentUser]);
 
   const deleteEvent = useCallback((id: string) => {
-    if (roomCode) {
-      const ref = doc(db, 'rooms', roomCode, 'events', id);
-      deleteDoc(ref);
-    }
-    localStore.deleteEvent(id);
+    if (!currentUser) return;
+    
+    // 개인 데이터에서 삭제
+    const ref = doc(db, 'userData', currentUser.id, 'events', id);
+    deleteDoc(ref);
+    
     setData(prev => ({
       ...prev,
       events: prev.events.filter(e => e.id !== id)
     }));
-  }, [roomCode]);
+  }, [currentUser]);
 
   const addWeeklyGoal = useCallback((goal: WeeklyGoal) => {
     if (!currentUser) return;
@@ -604,13 +554,12 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
       userColor: currentUser.color,
     };
     
-    if (roomCode) {
-      const ref = doc(db, 'rooms', roomCode, 'weeklyGoals', goal.id);
-      setDoc(ref, goalWithUser);
-    }
-    localStore.addWeeklyGoal(goal);
+    // 개인 데이터에 저장
+    const ref = doc(db, 'userData', currentUser.id, 'weeklyGoals', goal.id);
+    setDoc(ref, goalWithUser);
+    
     setData(prev => ({ ...prev, weeklyGoals: [...prev.weeklyGoals, goalWithUser] }));
-  }, [roomCode, currentUser]);
+  }, [currentUser]);
 
   const updateWeeklyGoal = useCallback((goal: WeeklyGoal) => {
     if (!currentUser) return;
@@ -622,28 +571,28 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
       userColor: goal.userColor || currentUser.color,
     };
     
-    if (roomCode) {
-      const ref = doc(db, 'rooms', roomCode, 'weeklyGoals', goal.id);
-      setDoc(ref, goalWithUser);
-    }
-    localStore.updateWeeklyGoal(goal);
+    // 개인 데이터에 저장
+    const ref = doc(db, 'userData', currentUser.id, 'weeklyGoals', goal.id);
+    setDoc(ref, goalWithUser);
+    
     setData(prev => ({
       ...prev,
       weeklyGoals: prev.weeklyGoals.map(g => g.id === goal.id ? goalWithUser : g)
     }));
-  }, [roomCode, currentUser]);
+  }, [currentUser]);
 
   const deleteWeeklyGoal = useCallback((id: string) => {
-    if (roomCode) {
-      const ref = doc(db, 'rooms', roomCode, 'weeklyGoals', id);
-      deleteDoc(ref);
-    }
-    localStore.deleteWeeklyGoal(id);
+    if (!currentUser) return;
+    
+    // 개인 데이터에서 삭제
+    const ref = doc(db, 'userData', currentUser.id, 'weeklyGoals', id);
+    deleteDoc(ref);
+    
     setData(prev => ({
       ...prev,
       weeklyGoals: prev.weeklyGoals.filter(g => g.id !== id)
     }));
-  }, [roomCode]);
+  }, [currentUser]);
 
   return (
     <FirebaseContext.Provider value={{
