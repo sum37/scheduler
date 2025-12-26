@@ -1,13 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useMemo } from 'react';
 import { Event, TimeBlock } from '../types';
 import { getMonthDays, formatDate, generateId } from '../utils';
 import { format, isSameDay } from 'date-fns';
-import {
-  getEventsForMonth,
-  addEvent,
-  deleteEvent,
-  updateTimeBlock,
-} from '../store';
+import { useFirebase } from '../FirebaseContext';
 
 interface MonthlyViewProps {
   date: Date;
@@ -47,20 +42,20 @@ function slotToTimeString(slot: number): string {
 }
 
 export default function MonthlyView({ date, onDateSelect }: MonthlyViewProps) {
-  const [events, setEvents] = useState<Event[]>([]);
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [quickInput, setQuickInput] = useState('');
 
   const monthDays = getMonthDays(date);
-
-  const loadData = useCallback(() => {
-    setEvents(getEventsForMonth(date.getFullYear(), date.getMonth()));
-  }, [date]);
-
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  
+  // Firebase에서 실시간 데이터 가져오기
+  const { data, addEvent, deleteEvent, updateTimeBlock } = useFirebase();
+  
+  // 해당 월의 이벤트만 필터링
+  const events = useMemo(() => {
+    const prefix = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    return data.events.filter(e => e.date.startsWith(prefix));
+  }, [data.events, date]);
 
   const getEventsForDay = (dayDate: Date) => {
     const dateStr = formatDate(dayDate);
@@ -111,7 +106,6 @@ export default function MonthlyView({ date, onDateSelect }: MonthlyViewProps) {
     addEvent(event);
 
     setQuickInput('');
-    loadData();
 
     // 햅틱 피드백
     if (navigator.vibrate) {
@@ -121,7 +115,6 @@ export default function MonthlyView({ date, onDateSelect }: MonthlyViewProps) {
 
   const handleDeleteEvent = (id: string) => {
     deleteEvent(id);
-    loadData();
   };
 
   const handleCloseModal = () => {

@@ -1,14 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useMemo } from 'react';
 import { TimeBlock, Todo } from '../types';
 import { generateId } from '../utils';
-import {
-  getTimeBlocksForDate,
-  updateTimeBlock,
-  getTodosForDate,
-  addTodo,
-  updateTodo,
-  deleteTodo,
-} from '../store';
+import { useFirebase } from '../FirebaseContext';
 
 interface DailyViewProps {
   date: Date;
@@ -36,20 +29,29 @@ function formatSlotTimeShort(slot: number): string {
 
 export default function DailyView({ dateString }: DailyViewProps) {
   const [subTab, setSubTab] = useState<SubTab>('timetable');
-  const [timeBlocks, setTimeBlocks] = useState<TimeBlock[]>([]);
-  const [todos, setTodos] = useState<Todo[]>([]);
   const [selectedBlock, setSelectedBlock] = useState<TimeBlock | null>(null);
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const [newTodoText, setNewTodoText] = useState('');
-
-  const loadData = useCallback(() => {
-    setTimeBlocks(getTimeBlocksForDate(dateString));
-    setTodos(getTodosForDate(dateString));
-  }, [dateString]);
-
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  
+  // Firebase에서 실시간 데이터 가져오기
+  const { 
+    data, 
+    updateTimeBlock, 
+    addTodo, 
+    updateTodo, 
+    deleteTodo 
+  } = useFirebase();
+  
+  // 해당 날짜의 데이터만 필터링
+  const timeBlocks = useMemo(() => 
+    data.timeBlocks.filter(b => b.date === dateString),
+    [data.timeBlocks, dateString]
+  );
+  
+  const todos = useMemo(() => 
+    data.todos.filter(t => t.date === dateString).sort((a, b) => a.order - b.order),
+    [data.todos, dateString]
+  );
 
   // 30분 슬롯에 해당하는 블록 가져오기
   const getBlockForSlot = (slot: number): TimeBlock => {
@@ -77,7 +79,6 @@ export default function DailyView({ dateString }: DailyViewProps) {
     // 기존 할일을 교체
     const updated = { ...selectedBlock, note: todo.text };
     updateTimeBlock(updated);
-    loadData();
     
     // 햅틱 피드백
     if (navigator.vibrate) {
@@ -97,13 +98,11 @@ export default function DailyView({ dateString }: DailyViewProps) {
   const handleNoteSave = () => {
     if (!selectedBlock) return;
     updateTimeBlock(selectedBlock);
-    loadData();
   };
 
   const handleClosePicker = () => {
     if (selectedBlock) {
       updateTimeBlock(selectedBlock);
-      loadData();
     }
     setIsPickerOpen(false);
     setSelectedBlock(null);
@@ -114,7 +113,6 @@ export default function DailyView({ dateString }: DailyViewProps) {
     const updated = { ...selectedBlock, note: '', categoryId: null };
     setSelectedBlock(updated);
     updateTimeBlock(updated);
-    loadData();
   };
 
   const handleAddTodo = () => {
@@ -128,17 +126,14 @@ export default function DailyView({ dateString }: DailyViewProps) {
     };
     addTodo(todo);
     setNewTodoText('');
-    loadData();
   };
 
   const handleToggleTodo = (todo: Todo) => {
     updateTodo({ ...todo, completed: !todo.completed });
-    loadData();
   };
 
   const handleDeleteTodo = (id: string) => {
     deleteTodo(id);
-    loadData();
   };
 
   // 미완료 투두만 필터링

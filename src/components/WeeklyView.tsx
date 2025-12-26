@@ -1,17 +1,9 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { WeeklyGoal } from '../types';
 import { getWeekDays, formatDate, generateId } from '../utils';
 import { format, isToday, isSameDay } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import {
-  getWeeklyGoalsForWeek,
-  addWeeklyGoal,
-  updateWeeklyGoal,
-  deleteWeeklyGoal,
-  getTodosForDate,
-  getTimeBlocksForDate,
-  addTodo,
-} from '../store';
+import { useFirebase } from '../FirebaseContext';
 
 interface WeeklyViewProps {
   date: Date;
@@ -30,7 +22,6 @@ interface DragState {
 }
 
 export default function WeeklyView({ date, weekStart, onDateSelect }: WeeklyViewProps) {
-  const [goals, setGoals] = useState<WeeklyGoal[]>([]);
   const [newGoalText, setNewGoalText] = useState('');
   const [dragState, setDragState] = useState<DragState>({
     isDragging: false,
@@ -48,13 +39,27 @@ export default function WeeklyView({ date, weekStart, onDateSelect }: WeeklyView
   const dayRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
   const weekDays = getWeekDays(date);
 
-  const loadData = useCallback(() => {
-    setGoals(getWeeklyGoalsForWeek(weekStart));
-  }, [weekStart]);
-
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  // Firebase에서 실시간 데이터 가져오기
+  const { 
+    data, 
+    addWeeklyGoal, 
+    updateWeeklyGoal, 
+    deleteWeeklyGoal,
+    addTodo 
+  } = useFirebase();
+  
+  // 해당 주의 목표만 필터링
+  const goals = useMemo(() => 
+    data.weeklyGoals.filter(g => g.weekStart === weekStart).sort((a, b) => a.order - b.order),
+    [data.weeklyGoals, weekStart]
+  );
+  
+  // 날짜별 데이터 가져오기
+  const getTodosForDate = (dateStr: string) => 
+    data.todos.filter(t => t.date === dateStr);
+  
+  const getTimeBlocksForDate = (dateStr: string) => 
+    data.timeBlocks.filter(b => b.date === dateStr);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -76,18 +81,15 @@ export default function WeeklyView({ date, weekStart, onDateSelect }: WeeklyView
     };
     addWeeklyGoal(goal);
     setNewGoalText('');
-    loadData();
   };
 
   const handleToggleGoal = (goal: WeeklyGoal) => {
     if (dragState.isDragging) return;
     updateWeeklyGoal({ ...goal, completed: !goal.completed });
-    loadData();
   };
 
   const handleDeleteGoal = (id: string) => {
     deleteWeeklyGoal(id);
-    loadData();
   };
 
   // Long press handlers for drag

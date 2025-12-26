@@ -244,7 +244,7 @@ export default function ProfileView({ date, weekStart }: ProfileViewProps) {
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') handleNameSave();
                     if (e.key === 'Escape') {
-                      setTempName(userName);
+                      setTempName(currentUser?.name || '');
                       setIsEditingName(false);
                     }
                   }}
