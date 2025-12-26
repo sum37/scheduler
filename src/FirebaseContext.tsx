@@ -158,6 +158,11 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
       localStorage.setItem(USER_NAME_KEY, name.trim());
       localStorage.setItem(USER_COLOR_KEY, newColor);
       
+      // 새 계정은 공유 상태 초기화!
+      localStorage.removeItem(ROOM_CODE_KEY);
+      setRoomCode(null);
+      setRoomUsers([]);
+      
       setCurrentUser({ id: newId, name: name.trim(), color: newColor });
       
       return { success: true };
