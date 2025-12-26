@@ -1,4 +1,4 @@
-import { format, startOfWeek, addDays, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, isSameDay } from 'date-fns';
+import { format, startOfWeek, addDays, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday } from 'date-fns';
 import { ko } from 'date-fns/locale';
 
 export function formatDate(date: Date): string {

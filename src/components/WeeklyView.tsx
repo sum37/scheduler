@@ -44,7 +44,7 @@ export default function WeeklyView({ date, weekStart, onDateSelect }: WeeklyView
   const [dropTargetDate, setDropTargetDate] = useState<Date | null>(null);
   const [showCopiedFeedback, setShowCopiedFeedback] = useState<string | null>(null);
   
-  const longPressTimer = useRef<NodeJS.Timeout | null>(null);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dayRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
   const weekDays = getWeekDays(date);
 

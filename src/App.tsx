@@ -79,10 +79,6 @@ function App() {
     }
   };
 
-  const handleToday = () => {
-    setSelectedDate(new Date());
-  };
-
   const handleDateSelect = (date: Date) => {
     setSelectedDate(date);
     if (currentView === 'monthly') {
