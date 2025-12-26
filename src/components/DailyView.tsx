@@ -269,14 +269,27 @@ export default function DailyView({ dateString }: DailyViewProps) {
                         style={{
                           display: 'flex',
                           alignItems: 'center',
-                          gap: 6,
-                          padding: '6px 10px',
-                          background: block.userColor ? `${block.userColor}20` : 'rgba(110, 168, 158, 0.1)',
-                          borderRadius: 'var(--radius-sm)',
-                          borderLeft: `3px solid ${block.userColor || 'var(--accent-primary)'}`,
+                          gap: 8,
+                          padding: '6px 8px',
+                          background: block.userColor ? `${block.userColor}15` : 'rgba(110, 168, 158, 0.08)',
+                          borderRadius: 20,
                           fontSize: '0.75rem',
+                          width: 'fit-content',
+                          height: 'fit-content',
+                          marginBottom: 4,
+                          marginLeft: 4,                          
                         }}
                       >
+                        {/* 왼쪽 원기둥 (카테고리 바) - 내 것과 같은 크기 */}
+                        <div
+                          style={{
+                            width: 8,
+                            height: 16,
+                            borderRadius: 10,
+                            backgroundColor: block.userColor || 'var(--accent-primary)',
+                            flexShrink: 0,
+                          }}
+                        />
                         <span 
                           style={{ 
                             fontWeight: 600, 

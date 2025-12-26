@@ -511,12 +511,20 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
     const ref = doc(db, 'userData', currentUser.id, 'timeBlocks', block.id);
     setDoc(ref, blockWithUser);
     
-    setData(prev => ({
-      ...prev,
-      timeBlocks: prev.timeBlocks.some(b => b.id === block.id)
-        ? prev.timeBlocks.map(b => b.id === block.id ? blockWithUser : b)
-        : [...prev.timeBlocks, blockWithUser]
-    }));
+    setData(prev => {
+      // 타인의 데이터는 그대로 유지하고 내 데이터만 업데이트
+      const othersBlocks = prev.timeBlocks.filter(b => b.userId !== currentUser.id);
+      const myBlocks = prev.timeBlocks.filter(b => b.userId === currentUser.id);
+      
+      const updatedMyBlocks = myBlocks.some(b => b.id === block.id)
+        ? myBlocks.map(b => b.id === block.id ? blockWithUser : b)
+        : [...myBlocks, blockWithUser];
+      
+      return {
+        ...prev,
+        timeBlocks: [...updatedMyBlocks, ...othersBlocks]
+      };
+    });
   }, [currentUser]);
 
   const addTodo = useCallback((todo: Todo) => {
@@ -583,7 +591,12 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
     const ref = doc(db, 'userData', currentUser.id, 'events', event.id);
     setDoc(ref, eventWithUser);
     
-    setData(prev => ({ ...prev, events: [...prev.events, eventWithUser] }));
+    setData(prev => {
+      // 타인의 데이터는 그대로 유지
+      const othersEvents = prev.events.filter(e => e.userId !== currentUser.id);
+      const myEvents = prev.events.filter(e => e.userId === currentUser.id);
+      return { ...prev, events: [...myEvents, eventWithUser, ...othersEvents] };
+    });
   }, [currentUser]);
 
   const updateEvent = useCallback((event: Event) => {
@@ -600,10 +613,13 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
     const ref = doc(db, 'userData', currentUser.id, 'events', event.id);
     setDoc(ref, eventWithUser);
     
-    setData(prev => ({
-      ...prev,
-      events: prev.events.map(e => e.id === event.id ? eventWithUser : e)
-    }));
+    setData(prev => {
+      // 타인의 데이터는 그대로 유지하고 내 데이터만 업데이트
+      const othersEvents = prev.events.filter(e => e.userId !== currentUser.id);
+      const myEvents = prev.events.filter(e => e.userId === currentUser.id);
+      const updatedMyEvents = myEvents.map(e => e.id === event.id ? eventWithUser : e);
+      return { ...prev, events: [...updatedMyEvents, ...othersEvents] };
+    });
   }, [currentUser]);
 
   const deleteEvent = useCallback((id: string) => {
