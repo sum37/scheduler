@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 import { 
   collection, 
   doc, 
@@ -117,6 +117,12 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
     todos: [],
     events: [],
     weeklyGoals: [],
+  });
+  
+  // 공유 데이터를 별도로 저장 (타인의 데이터 유지용)
+  const sharedDataRef = useRef<{ timeBlocks: TimeBlock[]; events: Event[] }>({
+    timeBlocks: [],
+    events: [],
   });
 
   // 회원가입
@@ -376,6 +382,12 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
         allSharedEvents.push(...userData.events);
       });
 
+      // ref에 공유 데이터 저장 (updateTimeBlock에서 참조용)
+      sharedDataRef.current = {
+        timeBlocks: allSharedTimeBlocks,
+        events: allSharedEvents,
+      };
+
       setData(prev => ({
         ...prev,
         // 내 데이터 + 공유 데이터 병합 (timeBlocks, events만)
@@ -512,9 +524,23 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
     setDoc(ref, blockWithUser);
     
     setData(prev => {
-      // 타인의 데이터는 그대로 유지하고 내 데이터만 업데이트
-      const othersBlocks = prev.timeBlocks.filter(b => b.userId !== currentUser.id);
-      const myBlocks = prev.timeBlocks.filter(b => b.userId === currentUser.id);
+      // prev에서 타인의 데이터 가져오기 (userId가 없거나 다른 사용자)
+      const othersBlocksFromPrev = prev.timeBlocks.filter(
+        b => b.userId && b.userId !== currentUser.id
+      );
+      
+      // sharedDataRef에서도 가져오기 (더 최신일 수 있음)
+      const othersBlocksFromRef = sharedDataRef.current.timeBlocks;
+      
+      // 둘 중 더 많은 쪽 사용 (데이터 유실 방지)
+      const othersBlocks = othersBlocksFromRef.length >= othersBlocksFromPrev.length 
+        ? othersBlocksFromRef 
+        : othersBlocksFromPrev;
+      
+      // 내 데이터만 업데이트
+      const myBlocks = prev.timeBlocks.filter(
+        b => !b.userId || b.userId === currentUser.id
+      );
       
       const updatedMyBlocks = myBlocks.some(b => b.id === block.id)
         ? myBlocks.map(b => b.id === block.id ? blockWithUser : b)
@@ -592,9 +618,16 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
     setDoc(ref, eventWithUser);
     
     setData(prev => {
-      // 타인의 데이터는 그대로 유지
-      const othersEvents = prev.events.filter(e => e.userId !== currentUser.id);
-      const myEvents = prev.events.filter(e => e.userId === currentUser.id);
+      // prev에서 타인의 데이터 가져오기
+      const othersEventsFromPrev = prev.events.filter(
+        e => e.userId && e.userId !== currentUser.id
+      );
+      const othersEventsFromRef = sharedDataRef.current.events;
+      const othersEvents = othersEventsFromRef.length >= othersEventsFromPrev.length 
+        ? othersEventsFromRef 
+        : othersEventsFromPrev;
+      
+      const myEvents = prev.events.filter(e => !e.userId || e.userId === currentUser.id);
       return { ...prev, events: [...myEvents, eventWithUser, ...othersEvents] };
     });
   }, [currentUser]);
@@ -614,9 +647,17 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
     setDoc(ref, eventWithUser);
     
     setData(prev => {
-      // 타인의 데이터는 그대로 유지하고 내 데이터만 업데이트
-      const othersEvents = prev.events.filter(e => e.userId !== currentUser.id);
-      const myEvents = prev.events.filter(e => e.userId === currentUser.id);
+      // prev에서 타인의 데이터 가져오기
+      const othersEventsFromPrev = prev.events.filter(
+        e => e.userId && e.userId !== currentUser.id
+      );
+      const othersEventsFromRef = sharedDataRef.current.events;
+      const othersEvents = othersEventsFromRef.length >= othersEventsFromPrev.length 
+        ? othersEventsFromRef 
+        : othersEventsFromPrev;
+      
+      // 내 데이터만 업데이트
+      const myEvents = prev.events.filter(e => !e.userId || e.userId === currentUser.id);
       const updatedMyEvents = myEvents.map(e => e.id === event.id ? eventWithUser : e);
       return { ...prev, events: [...updatedMyEvents, ...othersEvents] };
     });
