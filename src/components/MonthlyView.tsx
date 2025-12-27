@@ -176,7 +176,7 @@ export default function MonthlyView({ date, onDateSelect }: MonthlyViewProps) {
                           textOverflow: 'ellipsis',
                           textAlign: 'center',
                           padding: '1px 2px',
-                          background: 'rgba(194, 220, 128, 0.3)',
+                          background: 'var(--accent-glow)',
                           borderRadius: 2,
                         }}
                       >
@@ -233,7 +233,7 @@ export default function MonthlyView({ date, onDateSelect }: MonthlyViewProps) {
                   placeholder="예: 19.5-20.5 수영"
                   value={quickInput}
                   onChange={e => setQuickInput(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && handleQuickAdd()}
+                  onKeyDown={e => e.key === 'Enter' && !e.nativeEvent.isComposing && handleQuickAdd()}
                   style={{ flex: 1 }}
                 />
                 <button 

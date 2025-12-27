@@ -67,7 +67,7 @@ html, body {
 
 body {
   font-family: var(--font-sans);
-  background: var(--bg-primary);
+  background: var(--bg-terti);
   color: var(--text-primary);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
@@ -88,10 +88,7 @@ body::before {
   left: 0;
   right: 0;
   bottom: 0;
-  background: 
-    radial-gradient(ellipse at 0% 0%, rgba(184, 214, 178, 0.15) 0%, transparent 50%),
-    radial-gradient(ellipse at 100% 100%, rgba(166, 210, 200, 0.12) 0%, transparent 50%),
-    radial-gradient(ellipse at 50% 50%, rgba(110, 168, 158, 0.05) 0%, transparent 70%);
+  background: var(--bg-tertiary);
   pointer-events: none;
   z-index: -1;
 }
@@ -149,7 +146,7 @@ body.scrolling * {
   justify-content: center;
   padding: 12px 16px;
   padding-top: calc(12px + var(--safe-area-top));
-  background: var(--mint-deep);
+  background: var(--accent-primary);
   border-bottom: none;
   box-shadow: var(--shadow-md);
 }
@@ -284,8 +281,8 @@ body.scrolling * {
 
 .bottom-nav-item.active {
   color: white;
-  background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
-  box-shadow: 0 4px 12px rgba(110, 168, 158, 0.4);
+  background: var(--accent-primary);
+  box-shadow: 0 4px 12px var(--accent-glow);
 }
 
 .bottom-nav-item.active .nav-icon {
@@ -380,7 +377,7 @@ body.scrolling * {
   font-family: var(--font-mono);
   font-size: 0.75rem;
   color: var(--text-muted);
-  background: rgba(110, 168, 158, 0.15);
+  background: var(--accent-glow);
   flex-shrink: 0;
 }
 
@@ -407,7 +404,7 @@ body.scrolling * {
   color: var(--text-secondary);
   white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis;
+  text-overflow: el위lipsis;
 }
 
 .time-block-note.empty {
@@ -601,8 +598,8 @@ body.scrolling * {
 }
 
 .todo-checkbox.checked {
-  background: linear-gradient(135deg, var(--success) 0%, #9fc764 100%);
-  border-color: var(--success);
+  background: var(--accent-primary);
+  border-color: var(--accent-primary);
   color: white;
 }
 
@@ -674,7 +671,7 @@ body.scrolling * {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+  background: var(--accent-secondary);
   border: none;
   border-radius: var(--radius-md);
   color: white;
@@ -746,7 +743,7 @@ body.scrolling * {
 }
 
 .calendar-day.today {
-  background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+  background: var(--accent-secondary);
   color: white;
   box-shadow: var(--shadow-sm);
 }
@@ -1055,7 +1052,7 @@ body.scrolling * {
 }
 
 .week-day-item.today {
-  background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+  background: var(--accent-hover);
   color: white;
   box-shadow: var(--shadow-sm);
 }
@@ -1102,7 +1099,7 @@ body.scrolling * {
   justify-content: center;
   gap: 8px;
   padding: 14px 24px;
-  background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+  background: var(--accent-secondary);
   border: none;
   border-radius: var(--radius-md);
   color: white;
@@ -1394,7 +1391,7 @@ body.scrolling * {
   padding: 14px;
   font-size: 1rem;
   font-weight: 600;
-  background: linear-gradient(135deg, var(--mint-deep), var(--mint-medium));
+  background: var(--accent-secondary);
   color: #ffffff;
   border: none;
   border-radius: var(--radius-lg);

@@ -33,7 +33,6 @@ export default function WeeklyView({ date, weekStart, onDateSelect }: WeeklyView
     currentY: 0,
   });
   const [dropTargetDate, setDropTargetDate] = useState<Date | null>(null);
-  const [showCopiedFeedback, setShowCopiedFeedback] = useState<string | null>(null);
   
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dayRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
@@ -171,10 +170,6 @@ export default function WeeklyView({ date, weekStart, onDateSelect }: WeeklyView
       
       addTodo(newTodo);
       
-      // Show feedback
-      setShowCopiedFeedback(targetDateStr);
-      setTimeout(() => setShowCopiedFeedback(null), 1500);
-      
       // Success haptic - 성공적으로 복사됨
       if (navigator.vibrate) {
         navigator.vibrate([50, 100, 50, 100, 50]); // 트리플 틱 - 성공!
@@ -261,9 +256,6 @@ export default function WeeklyView({ date, weekStart, onDateSelect }: WeeklyView
       };
       
       addTodo(newTodo);
-      
-      setShowCopiedFeedback(targetDateStr);
-      setTimeout(() => setShowCopiedFeedback(null), 1500);
     }
 
     setDragState({
@@ -321,7 +313,6 @@ export default function WeeklyView({ date, weekStart, onDateSelect }: WeeklyView
             const dateStr = formatDate(dayDate);
             const summary = getDaySummary(dayDate);
             const isDropTarget = dropTargetDate && isSameDay(dayDate, dropTargetDate);
-            const justCopied = showCopiedFeedback === dateStr;
             
             return (
               <button
@@ -332,11 +323,12 @@ export default function WeeklyView({ date, weekStart, onDateSelect }: WeeklyView
                 className={`week-day-item ${isToday(dayDate) ? 'today' : ''} ${isSameDay(dayDate, date) ? 'selected' : ''}`}
                 onClick={() => !dragState.isDragging && onDateSelect(dayDate)}
                 style={{
-                  transform: isDropTarget ? 'scale(1.1)' : 'scale(1)',
-                  boxShadow: isDropTarget ? '0 0 20px var(--accent-primary)' : 'none',
-                  border: isDropTarget ? '2px solid var(--accent-primary)' : 'none',
+                  transform: isDropTarget ? 'scale(1)' : 'scale(1)',
+                  boxShadow: isDropTarget ? '0 0 10px var(--accent-primary)' : 'none',
                   transition: 'all 0.2s ease',
-                  background: justCopied ? 'var(--success)' : isDropTarget ? 'var(--accent-glow)' : undefined,
+                  background: isDropTarget 
+                    ? (isToday(dayDate) ? 'var(--accent-primary)' : 'var(--accent-glow)') 
+                    : undefined,
                 }}
               >
                 <span className="week-day-name">
@@ -345,50 +337,46 @@ export default function WeeklyView({ date, weekStart, onDateSelect }: WeeklyView
                 <span className="week-day-number">
                   {format(dayDate, 'd')}
                 </span>
-                {justCopied ? (
-                  <span style={{ fontSize: '0.75rem', marginTop: 4 }}>✓</span>
-                ) : (
-                  <div style={{ 
-                    display: 'flex', 
-                    flexDirection: 'column',
-                    gap: 2, 
-                    marginTop: 6,
-                    width: '100%',
-                    minWidth: 0,
-                    flex: 1,
-                    overflow: 'hidden',
-                  }}>
-                    {summary.todos.slice(0, 7).map((todo) => (
-                      <div
-                        key={todo.id}
-                        style={{
-                          fontSize: '0.5rem',
-                          color: todo.completed ? 'var(--text-muted)' : 'var(--text-secondary)',
-                          textDecoration: todo.completed ? 'line-through' : 'none',
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          textAlign: 'center',
-                          padding: '1px 2px',
-                          background: todo.completed ? 'transparent' : 'rgba(213, 105, 137, 0.1)',
-                          borderRadius: 2,
-                          maxWidth: '100%',
-                        }}
-                      >
-                        {todo.text}
-                      </div>
-                    ))}
-                    {summary.todos.length > 7 && (
-                      <div style={{ 
-                        fontSize: '0.5rem', 
-                        color: 'var(--text-muted)',
+                <div style={{ 
+                  display: 'flex', 
+                  flexDirection: 'column',
+                  gap: 2, 
+                  marginTop: 6,
+                  width: '100%',
+                  minWidth: 0,
+                  flex: 1,
+                  overflow: 'hidden',
+                }}>
+                  {summary.todos.slice(0, 7).map((todo) => (
+                    <div
+                      key={todo.id}
+                      style={{
+                        fontSize: '0.5rem',
+                        color: todo.completed ? 'var(--text-muted)' : 'var(--text-secondary)',
+                        textDecoration: todo.completed ? 'line-through' : 'none',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
                         textAlign: 'center',
-                      }}>
-                        +{summary.todos.length - 7}
-                      </div>
-                    )}
-                  </div>
-                )}
+                        padding: '1px 2px',
+                        background: todo.completed ? 'transparent' : 'var(--accent-glow)',
+                        borderRadius: 2,
+                        maxWidth: '100%',
+                      }}
+                    >
+                      {todo.text}
+                    </div>
+                  ))}
+                  {summary.todos.length > 7 && (
+                    <div style={{ 
+                      fontSize: '0.5rem', 
+                      color: 'var(--text-muted)',
+                      textAlign: 'center',
+                    }}>
+                      +{summary.todos.length - 7}
+                    </div>
+                  )}
+                </div>
               </button>
             );
           })}
@@ -459,7 +447,7 @@ export default function WeeklyView({ date, weekStart, onDateSelect }: WeeklyView
             placeholder="새로운 주간 목표 추가..."
             value={newGoalText}
             onChange={e => setNewGoalText(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleAddGoal()}
+            onKeyDown={e => e.key === 'Enter' && !e.nativeEvent.isComposing && handleAddGoal()}
           />
           <button className="add-btn" onClick={handleAddGoal}>
             +
