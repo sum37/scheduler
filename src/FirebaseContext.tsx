@@ -15,15 +15,17 @@ import { db } from './firebase';
 import { User, Category, TimeBlock, Todo, Event, WeeklyGoal } from './types';
 import * as localStore from './store';
 
-// 사용자 색상 옵션
-const USER_COLORS = [
-  '#6ea89e', // 민트 (기본)
-  '#e8a87c', // 살구
-  '#c38d9e', // 로즈
-  '#41b3a3', // 틸
-  '#e27d60', // 코랄
-  '#85cdca', // 아쿠아
-];
+// 테마별 색상 매핑
+const THEME_COLORS: Record<string, string> = {
+  mint: '#6ea89e',
+  pink: '#c97390',
+  blue: '#6a9ec9',
+  yellow: '#c9a86a',
+  purple: '#a06ac4',
+};
+
+// 기본 색상 (민트)
+const DEFAULT_COLOR = '#6ea89e';
 
 interface CalendarData {
   categories: Category[];
@@ -39,6 +41,7 @@ interface FirebaseContextType {
   login: (name: string) => Promise<{ success: boolean; error?: string }>;
   register: (name: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
+  updateUserColor: (themeId: string) => void;
   
   // 연결 상태
   isConnected: boolean;
@@ -141,7 +144,9 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
       
       // 새 사용자 생성
       const newId = generateUserId();
-      const newColor = USER_COLORS[Math.floor(Math.random() * USER_COLORS.length)];
+      // 저장된 테마에서 색상 가져오기 (없으면 기본 민트)
+      const savedTheme = localStorage.getItem('calendar_theme') || 'mint';
+      const newColor = THEME_COLORS[savedTheme] || DEFAULT_COLOR;
       const newUser: User & { normalizedName: string; createdAt: number } = {
         id: newId,
         name: name.trim(),
@@ -234,6 +239,32 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
       weeklyGoals: [],
     });
   }, []);
+
+  // 사용자 색상 업데이트 (테마 변경 시)
+  const updateUserColor = useCallback(async (themeId: string) => {
+    const newColor = THEME_COLORS[themeId] || DEFAULT_COLOR;
+    
+    // 로컬 스토리지 업데이트
+    localStorage.setItem(USER_COLOR_KEY, newColor);
+    
+    // 현재 사용자 상태 업데이트
+    if (currentUser) {
+      const updatedUser = { ...currentUser, color: newColor };
+      setCurrentUser(updatedUser);
+      
+      // Firebase 사용자 정보 업데이트
+      try {
+        await setDoc(doc(db, 'users', currentUser.id), {
+          id: currentUser.id,
+          name: currentUser.name,
+          color: newColor,
+          normalizedName: currentUser.name.toLowerCase(),
+        }, { merge: true });
+      } catch (error) {
+        console.error('Error updating user color in Firebase:', error);
+      }
+    }
+  }, [currentUser]);
 
   // 개인 데이터 Firebase 리스너 (로그인 시)
   useEffect(() => {
@@ -732,6 +763,7 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
       login,
       register,
       logout,
+      updateUserColor,
       isConnected,
       roomCode,
       roomUsers,

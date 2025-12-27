@@ -37,7 +37,7 @@ export default function ProfileView({ date, weekStart }: ProfileViewProps) {
   });
   
   // Firebase 공유 관련
-  const { isConnected, roomCode, roomUsers, currentUser, logout, createRoom, joinRoom, leaveRoom } = useFirebase();
+  const { isConnected, roomCode, roomUsers, currentUser, logout, createRoom, joinRoom, leaveRoom, updateUserColor } = useFirebase();
   const [joinCodeInput, setJoinCodeInput] = useState('');
   const [isCreatingRoom, setIsCreatingRoom] = useState(false);
   const [isJoiningRoom, setIsJoiningRoom] = useState(false);
@@ -57,6 +57,8 @@ export default function ProfileView({ date, weekStart }: ProfileViewProps) {
 
   const handleThemeChange = (themeId: string) => {
     setCurrentTheme(themeId);
+    // Firebase에 사용자 색상 업데이트 (공유 시 테마 색상으로 표시됨)
+    updateUserColor(themeId);
     if (navigator.vibrate) navigator.vibrate(30);
   };
 
@@ -282,58 +284,34 @@ export default function ProfileView({ date, weekStart }: ProfileViewProps) {
         
         <div style={{
           display: 'flex',
-          gap: 12,
-          flexWrap: 'wrap',
+          gap: 16,
           justifyContent: 'center',
+          alignItems: 'center',
         }}>
           {THEMES.map(theme => (
             <button
               key={theme.id}
               onClick={() => handleThemeChange(theme.id)}
               style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: 8,
-                padding: '16px 20px',
-                background: currentTheme === theme.id ? theme.color + '20' : 'var(--bg-tertiary)',
-                border: currentTheme === theme.id ? `2px solid ${theme.color}` : '2px solid transparent',
-                borderRadius: 'var(--radius-md)',
-                cursor: 'pointer',
-                transition: 'all 0.2s ease',
-                minWidth: 70,
-              }}
-            >
-              <div style={{
-                width: 40,
-                height: 40,
+                width: 44,
+                height: 44,
                 borderRadius: '50%',
                 backgroundColor: theme.color,
+                border: 'none',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                transform: currentTheme === theme.id ? 'scale(1.2)' : 'scale(1)',
+                boxShadow: currentTheme === theme.id 
+                  ? `0 0 24px ${theme.color}80` 
+                  : 'none',
+                padding: 0,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: '1.25rem',
-                boxShadow: currentTheme === theme.id 
-                  ? `0 0 16px ${theme.color}50` 
-                  : 'none',
-              }}>
-                {theme.emoji}
-              </div>
-              <span style={{
-                fontSize: '0.75rem',
-                fontWeight: currentTheme === theme.id ? 600 : 400,
-                color: currentTheme === theme.id ? theme.color : 'var(--text-secondary)',
-              }}>
-                {theme.name}
-              </span>
+              }}
+            >
               {currentTheme === theme.id && (
-                <span style={{
-                  fontSize: '0.625rem',
-                  color: theme.color,
-                  fontWeight: 500,
-                }}>
-                  ✓ 선택됨
-                </span>
+                <span style={{ color: 'white', fontSize: '1rem', fontWeight: 700 }}>✓</span>
               )}
             </button>
           ))}
