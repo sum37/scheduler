@@ -41,6 +41,22 @@ function slotToTimeString(slot: number): string {
   return `${hour.toString().padStart(2, '0')}:${minute === 0 ? '00' : '30'}`;
 }
 
+// 시간 문자열을 슬롯으로 변환: "19:30" -> 39
+function timeStringToSlot(timeStr: string): number {
+  const [hour, minute] = timeStr.split(':').map(Number);
+  return hour * 2 + (minute >= 30 ? 1 : 0);
+}
+
+// 이벤트 시간 파싱: "19:30~20:30" -> { start: 39, end: 41 }
+function parseEventTime(time: string): { start: number; end: number } | null {
+  const match = time.match(/^(\d{2}:\d{2})~(\d{2}:\d{2})$/);
+  if (!match) return null;
+  return {
+    start: timeStringToSlot(match[1]),
+    end: timeStringToSlot(match[2]),
+  };
+}
+
 export default function MonthlyView({ date, onDateSelect }: MonthlyViewProps) {
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -114,6 +130,33 @@ export default function MonthlyView({ date, onDateSelect }: MonthlyViewProps) {
   };
 
   const handleDeleteEvent = (id: string) => {
+    // 삭제할 이벤트 찾기
+    const eventToDelete = data.events.find(e => e.id === id);
+    
+    if (eventToDelete && eventToDelete.time) {
+      // 이벤트 시간 파싱
+      const timeRange = parseEventTime(eventToDelete.time);
+      
+      if (timeRange) {
+        // 해당 시간대의 타임블록들 비우기
+        for (let slot = timeRange.start; slot < timeRange.end; slot++) {
+          const existingBlock = data.timeBlocks.find(
+            b => b.date === eventToDelete.date && b.hour === slot
+          );
+          
+          if (existingBlock) {
+            // 타임블록 비우기
+            updateTimeBlock({
+              ...existingBlock,
+              note: '',
+              categoryId: null,
+            });
+          }
+        }
+      }
+    }
+    
+    // 이벤트 삭제
     deleteEvent(id);
   };
 

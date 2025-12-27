@@ -1,42 +1,121 @@
 :root {
-  /* Color Palette - Soft Mint */
-  --mint-lightest: #cfe5d5;   /* 가장 연한 민트 - 배경 */
-  --mint-light: #b8d6b2;      /* 연한 세이지 */
-  --mint: #a6d2c8;            /* 민트 */
-  --mint-medium: #8fc6b7;     /* 중간 민트 */
-  --mint-deep: #6ea89e;       /* 진한 민트/틸 - 메인 */
+  /* Color Palette - Soft Mint (Default) */
+  --theme-lightest: #cfe5d5;
+  --theme-light: #b8d6b2;
+  --theme-medium: #a6d2c8;
+  --theme-medium-deep: #8fc6b7;
+  --theme-deep: #6ea89e;
+  --theme-glow: rgba(110, 168, 158, 0.2);
   
   /* Main Colors */
-  --accent-primary: var(--mint-deep);
-  --accent-secondary: var(--mint-medium);
-  --accent-hover: var(--mint);
-  --accent-glow: rgba(110, 168, 158, 0.2);
-  
-  /* Background */
-  --bg-primary: #f7f6f1;
-  --bg-secondary: #f0efea;
-  --bg-tertiary: #fafaf7;
+  --accent-primary: var(--theme-deep);
+  --accent-secondary: var(--theme-medium-deep);
+  --accent-hover: var(--theme-medium);
+  --accent-glow: var(--theme-glow);
+}
+
+/* 🌿 민트 테마 (기본) */
+[data-theme="mint"] {
+  --theme-lightest: #cfe5d5;
+  --theme-light: #b8d6b2;
+  --theme-medium: #a6d2c8;
+  --theme-medium-deep: #8fc6b7;
+  --theme-deep: #6ea89e;
+  --theme-glow: rgba(110, 168, 158, 0.2);
+  --bg-primary: #f5f9f7;
+  --bg-secondary: #eef5f2;
+  --bg-tertiary: #f8fbf9;
   --bg-card: #ffffff;
-  --bg-hover: #eeedea;
+  --bg-hover: #e8f2ed;
+}
+
+/* 🩷 핑크 테마 */
+[data-theme="pink"] {
+  --theme-lightest: #f5d5e0;
+  --theme-light: #eebccf;
+  --theme-medium: #e8a6be;
+  --theme-medium-deep: #d98fa8;
+  --theme-deep: #c97390;
+  --theme-glow: rgba(201, 115, 144, 0.2);
+  --bg-primary: #fdf7f9;
+  --bg-secondary: #faf0f4;
+  --bg-tertiary: #fefafb;
+  --bg-card: #ffffff;
+  --bg-hover: #f8e8ef;
+}
+
+/* 💙 블루 테마 */
+[data-theme="blue"] {
+  --theme-lightest: #d5e5f5;
+  --theme-light: #b8d4ee;
+  --theme-medium: #a6c8e8;
+  --theme-medium-deep: #8fb8d9;
+  --theme-deep: #6a9ec9;
+  --theme-glow: rgba(106, 158, 201, 0.2);
+  --bg-primary: #f5f8fc;
+  --bg-secondary: #eef3f9;
+  --bg-tertiary: #f8fafd;
+  --bg-card: #ffffff;
+  --bg-hover: #e6eff7;
+}
+
+/* 💛 옐로우 테마 */
+[data-theme="yellow"] {
+  --theme-lightest: #f5ecd5;
+  --theme-light: #eedcb8;
+  --theme-medium: #e8d0a6;
+  --theme-medium-deep: #d9c08f;
+  --theme-deep: #c9a86a;
+  --theme-glow: rgba(201, 168, 106, 0.2);
+  --bg-primary: #fcfaf5;
+  --bg-secondary: #f9f5ed;
+  --bg-tertiary: #fdfcf8;
+  --bg-card: #ffffff;
+  --bg-hover: #f7f2e6;
+}
+
+/* 💜 퍼플 테마 */
+[data-theme="purple"] {
+  --theme-lightest: #e5d5f0;
+  --theme-light: #d4bbe8;
+  --theme-medium: #c8a6e0;
+  --theme-medium-deep: #b88fd4;
+  --theme-deep: #a06ac4;
+  --theme-glow: rgba(160, 106, 196, 0.2);
+  --bg-primary: #faf7fc;
+  --bg-secondary: #f5f0f9;
+  --bg-tertiary: #fcfafd;
+  --bg-card: #ffffff;
+  --bg-hover: #f2eaf7;
+}
+
+/* Other Variables */
+:root {
+  /* Background (기본: 민트 테마) */
+  /* --bg-primary: #f5f9f7;
+  --bg-secondary: #eef5f2;
+  --bg-tertiary: #f8fbf9;
+  --bg-card: #ffffff;
+  --bg-hover: #e8f2ed; */
   
   /* Text */
   --text-primary: #2d4a44;
   --text-secondary: #4a6b63;
-  --text-muted: var(--mint-deep);
+  --text-muted: var(--theme-deep);
   
   /* Border */
-  --border-color: #b5d4c4;
-  --border-light: #c8e0d2;
+  --border-color: var(--theme-light);
+  --border-light: var(--theme-lightest);
   
   /* Status */
-  --success: var(--mint-light);
+  --success: var(--theme-light);
   --warning: #d4a84b;
   --danger: #c45c4a;
   
   /* Shadow */
-  --shadow-sm: 0 2px 8px rgba(110, 168, 158, 0.12);
-  --shadow-md: 0 4px 16px rgba(110, 168, 158, 0.16);
-  --shadow-lg: 0 8px 32px rgba(110, 168, 158, 0.2);
+  --shadow-sm: 0 2px 8px var(--theme-glow);
+  --shadow-md: 0 4px 16px var(--theme-glow);
+  --shadow-lg: 0 8px 32px var(--theme-glow);
   
   /* Radius */
   --radius-sm: 10px;
@@ -1300,14 +1379,14 @@ body.scrolling * {
 }
 
 .sync-status.connected {
-  color: #2ecc71;
+  color: var(--accent-primary);
 }
 
 .sync-status-dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #2ecc71;
+  background: var(--accent-primary);
   animation: pulse 2s ease-in-out infinite;
 }
 

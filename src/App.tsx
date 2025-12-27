@@ -10,11 +10,19 @@ import OnboardingView from './components/OnboardingView';
 import { FirebaseProvider, useFirebase } from './FirebaseContext';
 import './index.css';
 
+const THEME_STORAGE_KEY = 'calendar_theme';
+
 function App() {
   const { currentUser, login, register } = useFirebase();
   const [currentView, setCurrentView] = useState<ViewType>('daily');
   const [selectedDate, setSelectedDate] = useState(new Date());
   const scrollTimeoutRef = useRef<number | null>(null);
+
+  // 앱 시작 시 저장된 테마 적용
+  useEffect(() => {
+    const savedTheme = localStorage.getItem(THEME_STORAGE_KEY) || 'mint';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+  }, []);
 
   // 스크롤 시 스크롤바 표시, 1초 후 숨김
   useEffect(() => {

@@ -15,10 +15,26 @@ interface ProfileViewProps {
   weekStart: string;
 }
 
+// 테마 옵션
+const THEMES = [
+  { id: 'mint', name: '민트', emoji: '🌿', color: '#6ea89e' },
+  { id: 'pink', name: '핑크', emoji: '🩷', color: '#c97390' },
+  { id: 'blue', name: '블루', emoji: '💙', color: '#6a9ec9' },
+  { id: 'yellow', name: '옐로우', emoji: '💛', color: '#c9a86a' },
+  { id: 'purple', name: '퍼플', emoji: '💜', color: '#a06ac4' },
+];
+
+const THEME_STORAGE_KEY = 'calendar_theme';
+
 export default function ProfileView({ date, weekStart }: ProfileViewProps) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [stats, setStats] = useState<{ categoryId: string; hours: number }[]>([]);
   const weekDays = getWeekDays(date);
+  
+  // 테마 상태
+  const [currentTheme, setCurrentTheme] = useState<string>(() => {
+    return localStorage.getItem(THEME_STORAGE_KEY) || 'mint';
+  });
   
   // Firebase 공유 관련
   const { isConnected, roomCode, roomUsers, currentUser, logout, createRoom, joinRoom, leaveRoom } = useFirebase();
@@ -26,6 +42,23 @@ export default function ProfileView({ date, weekStart }: ProfileViewProps) {
   const [isCreatingRoom, setIsCreatingRoom] = useState(false);
   const [isJoiningRoom, setIsJoiningRoom] = useState(false);
   const [showCopySuccess, setShowCopySuccess] = useState(false);
+
+  // 테마 적용
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', currentTheme);
+    localStorage.setItem(THEME_STORAGE_KEY, currentTheme);
+  }, [currentTheme]);
+
+  // 초기 테마 로드
+  useEffect(() => {
+    const savedTheme = localStorage.getItem(THEME_STORAGE_KEY) || 'mint';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+  }, []);
+
+  const handleThemeChange = (themeId: string) => {
+    setCurrentTheme(themeId);
+    if (navigator.vibrate) navigator.vibrate(30);
+  };
 
   const loadData = useCallback(() => {
     setCategories(getCategories());
@@ -237,6 +270,73 @@ export default function ProfileView({ date, weekStart }: ProfileViewProps) {
               {currentUser?.name || ''}
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* Theme Selection */}
+      <section className="card">
+        <h2 className="card-title">
+          <span>🎨</span>
+          테마 색상
+        </h2>
+        
+        <div style={{
+          display: 'flex',
+          gap: 12,
+          flexWrap: 'wrap',
+          justifyContent: 'center',
+        }}>
+          {THEMES.map(theme => (
+            <button
+              key={theme.id}
+              onClick={() => handleThemeChange(theme.id)}
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: 8,
+                padding: '16px 20px',
+                background: currentTheme === theme.id ? theme.color + '20' : 'var(--bg-tertiary)',
+                border: currentTheme === theme.id ? `2px solid ${theme.color}` : '2px solid transparent',
+                borderRadius: 'var(--radius-md)',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                minWidth: 70,
+              }}
+            >
+              <div style={{
+                width: 40,
+                height: 40,
+                borderRadius: '50%',
+                backgroundColor: theme.color,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '1.25rem',
+                boxShadow: currentTheme === theme.id 
+                  ? `0 0 16px ${theme.color}50` 
+                  : 'none',
+              }}>
+                {theme.emoji}
+              </div>
+              <span style={{
+                fontSize: '0.75rem',
+                fontWeight: currentTheme === theme.id ? 600 : 400,
+                color: currentTheme === theme.id ? theme.color : 'var(--text-secondary)',
+              }}>
+                {theme.name}
+              </span>
+              {currentTheme === theme.id && (
+                <span style={{
+                  fontSize: '0.625rem',
+                  color: theme.color,
+                  fontWeight: 500,
+                }}>
+                  ✓ 선택됨
+                </span>
+              )}
+            </button>
+          ))}
         </div>
       </section>
 
