@@ -120,7 +120,7 @@ export default function DailyView({ dateString }: DailyViewProps) {
   };
 
   // 드래그 핸들러들
-  const handleTouchStart = (e: React.TouchEvent, slot: number) => {
+  const handleTouchStart = (_e: React.TouchEvent, slot: number) => {
     longPressTimer.current = setTimeout(() => {
       // 햅틱 피드백
       if (navigator.vibrate) {
@@ -205,7 +205,7 @@ export default function DailyView({ dateString }: DailyViewProps) {
   };
 
   // 마우스 핸들러 (데스크톱)
-  const handleMouseDown = (e: React.MouseEvent, slot: number) => {
+  const handleMouseDown = (_e: React.MouseEvent, slot: number) => {
     longPressTimer.current = setTimeout(() => {
       setDragState({
         isDragging: true,
